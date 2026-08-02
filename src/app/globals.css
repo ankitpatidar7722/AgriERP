@@ -1,21 +1,269 @@
+﻿/*
+  indas-ui design tokens. Its components read RGB-space variables like
+  --bg-app and --color-primary; this app's own theme uses HSL-space
+  --background / --primary, so the two namespaces do not collide and both
+  render correctly side by side.
+
+  These MUST sit before @tailwind. PostCSS expands the @tailwind directives
+  into thousands of rules, and any @import that follows them then lands
+  mid-file - which Turbopack's CSS engine (Lightning CSS) rejects, since the
+  spec requires @import to precede all rules except @charset/@layer. Load
+  order is harmless here anyway: both files only declare :root/.dark custom
+  properties in a namespace nothing else redefines, so the resolved values
+  are identical whichever side of @tailwind they sit on.
+*/
+@import "indas-ui/tokens.css";
+@import "./indas-theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  AgriERP theme - navy shell, green primary.
 
-@media (prefers-color-scheme: dark) {
+  The application shell (sidebar + header) is the SAME navy in both themes.
+  That is deliberate: it is the brand plane, so it stays put while the content
+  area behind it flips between light and dark. Only the content tokens change
+  between :root and .dark.
+
+  Values are HSL triplets, not oklch: tailwind.config.ts wraps each one in
+  hsl(var(--x)), and Tailwind v3 cannot read an oklch() literal through that
+  wrapper. The shadcn CLI writes oklch by default for v4 setups, which silently
+  renders every colour as transparent here.
+
+  Chart series colours are the exception - they are raw hex, consumed directly
+  by Recharts as var(--chart-n), so they are not wrapped in hsl().
+*/
+
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Soft grey rather than pure white: the cards are white, and they need a
+       plane to sit on or the whole page reads as one flat sheet. */
+    --background: 220 24% 97%;
+    --foreground: 222 30% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 30% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 30% 11%;
+
+    /* Deep agricultural green. Carries white text at 5.6:1. */
+    --primary: 142 72% 29%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 140 30% 96%;
+    --secondary-foreground: 142 45% 20%;
+
+    --muted: 220 16% 95%;
+    --muted-foreground: 220 12% 46%;
+
+    --accent: 140 40% 94%;
+    --accent-foreground: 142 45% 20%;
+
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 29%;
+    --warning: 38 92% 45%;
+
+    --border: 220 16% 89%;
+    --input: 220 16% 89%;
+    --ring: 142 72% 29%;
+
+    --radius: 0.75rem;
+
+    /* ---- the shell: navy in both themes ---- */
+    --sidebar: 216 60% 18%;                 /* #13294B */
+    --sidebar-foreground: 213 30% 88%;
+    --sidebar-primary: 142 62% 44%;
+    --sidebar-primary-foreground: 144 80% 8%;
+    /* The active pill: a light grey chip with the rail's own navy as its ink.
+       Neutral on purpose - green here competed with the primary buttons in the
+       content area for "this is the important thing". */
+    --sidebar-accent: 220 13% 91%;
+    --sidebar-accent-foreground: 216 60% 18%;
+    --sidebar-border: 216 45% 26%;
+    --sidebar-ring: 142 62% 50%;
+    /* One step lighter than the rail, for the logo block and hover states. */
+    --sidebar-raised: 216 52% 24%;
+
+    /*
+      Categorical series slots, assigned in fixed order and never cycled.
+      Validated against the white chart surface: lightness band, chroma floor,
+      CVD separation and normal-vision floor all pass.
+
+      Three of these (aqua, yellow, magenta) fall below 3:1 on white. That is
+      the documented relief case, so every chart using them ships a legend and
+      visible value labels - colour never carries identity on its own.
+    */
+    --chart-1: #2a78d6;  /* blue    */
+    --chart-2: #eb6834;  /* orange  */
+    --chart-3: #1baf7a;  /* aqua    */
+    --chart-4: #eda100;  /* yellow  */
+    --chart-5: #e87ba4;  /* magenta */
+    --chart-6: #008300;  /* green   */
+
+    --chart-grid: #e1e0d9;
+    --chart-axis: #898781;
+  }
+
+  .dark {
+    --background: 229 27% 8%;               /* #0F111A */
+    --foreground: 0 0% 100%;
+
+    --card: 227 14% 12%;                    /* #1B1D24 */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 227 14% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 142 62% 45%;
+    --primary-foreground: 144 80% 8%;
+
+    --secondary: 225 13% 19%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 225 13% 19%;
+    --muted-foreground: 218 11% 65%;        /* #9CA3AF */
+
+    --accent: 142 25% 18%;
+    --accent-foreground: 142 60% 80%;
+
+    --destructive: 0 63% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 62% 45%;
+    --warning: 38 92% 55%;
+
+    --border: 225 13% 19%;                  /* #2A2D36 */
+    --input: 225 13% 22%;
+    --ring: 142 62% 45%;
+
+    /* The shell keeps its navy. Only the surfaces above changed. */
+    --sidebar: 216 60% 18%;
+    --sidebar-foreground: 213 30% 88%;
+    --sidebar-primary: 142 62% 44%;
+    --sidebar-primary-foreground: 144 80% 8%;
+    --sidebar-accent: 220 13% 91%;
+    --sidebar-accent-foreground: 216 60% 18%;
+    --sidebar-border: 216 45% 26%;
+    --sidebar-ring: 142 62% 50%;
+    --sidebar-raised: 216 52% 24%;
+
+    /*
+      Not an automatic flip of the light values - the same six hues, re-stepped
+      for the dark surface and validated as a set against it. All six clear 3:1
+      here, so the light-mode relief case does not apply in dark.
+    */
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+
+    /* Grid and axis follow the card surface they sit on, not the page. */
+    --chart-grid: #2a2d36;
+    --chart-axis: #9ca3af;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Columns of figures must line up; prose numbers should not be forced to. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /*
+    Card elevation. Two layers - a tight contact shadow and a wide soft one -
+    because a single large blur reads as fog rather than lift. Dark mode uses a
+    deeper, tighter shadow since a soft one is invisible against #0F111A and the
+    border is doing most of the separating.
+  */
+  .elev-card {
+    box-shadow:
+      0 1px 2px -1px rgb(16 24 40 / 0.06),
+      0 4px 16px -4px rgb(16 24 40 / 0.08);
+  }
+
+  .dark .elev-card {
+    box-shadow:
+      0 1px 2px -1px rgb(0 0 0 / 0.5),
+      0 8px 24px -12px rgb(0 0 0 / 0.6);
+  }
+
+  /* Thin, unobtrusive scrollbars inside the sidebar and long tables. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  /* The rail sits on navy, so its scrollbar cannot use the content border. */
+  .scrollbar-rail {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+
+  .scrollbar-rail::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .scrollbar-rail::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-border));
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 3px;
+  }
+}
+
+/*
+  Number inputs carry no spinner. The up/down stepper nudges a quantity or rate
+  by the field's `step` (often 0.001) - a stray click on it silently corrupts a
+  counted figure, so every number field is typed, never stepped. Applied
+  globally so it holds for native inputs and the shared Input alike.
+*/
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+@media print {
+  /* Print shows the document, not the application around it. */
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
 }

@@ -1,0 +1,45 @@
+/*
+  indas-ui, themed to a neutral slate grid.
+
+  The library ships an Indas-blue palette (--color-primary #003366). Its tokens
+  are RGB-space triplets consumed as rgb(var(--token)). This file re-points the
+  ACCENT chain - primary, accent text, active borders, selection tint - to a
+  neutral slate, because the DataGrid's header background is a 10% mix of
+  --color-primary over white:
+
+      thead { background: color-mix(in srgb, rgb(var(--color-primary)) 10%, white) }
+
+  so whatever primary is, the header wears a tint of it. Slate keeps the grid a
+  calm grey data surface - light slate header, dark text, quiet sort marks and
+  selection - rather than tinting it with the app's green. The green stays where
+  it belongs: the shell, the dashboard and the action buttons around the grid.
+
+  Only the DataGrid consumes these tokens; the app's own controls use the ShadCN
+  --primary (HSL) token, so this file never touches anything but the grid.
+
+  Loaded after indas-ui/tokens.css, so these values win by source order.
+
+  Slate scale used: 700 #334155 (51 65 85), 600 #475569 (71 85 105),
+  400 #94A3B8 (148 163 184), 300 #CBD5E1 (203 213 225), 100 #F1F5F9,
+  800 #1E293B (30 41 59).
+*/
+
+:root {
+  --color-primary: 71 85 105; /* slate-600: header tint (~#EDEEF0), sort marks, active */
+  --color-primary-hover: 51 65 85; /* slate-700 */
+  --color-primary-muted: 148 163 184; /* slate-400 */
+  --fg-accent: 71 85 105;
+  --bd-accent: 148 163 184; /* slate-400: active/selected border */
+  --color-icon-accent: 71 85 105;
+  --bg-selected: 241 245 249; /* slate-100 wash on a selected row */
+}
+
+.dark {
+  --color-primary: 148 163 184; /* slate-400: lifts the header over the dark surface */
+  --color-primary-hover: 203 213 225; /* slate-300 */
+  --color-primary-muted: 71 85 105; /* slate-600 */
+  --fg-accent: 148 163 184;
+  --bd-accent: 100 116 139; /* slate-500 */
+  --color-icon-accent: 148 163 184;
+  --bg-selected: 30 41 59; /* slate-800 */
+}

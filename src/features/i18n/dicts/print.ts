@@ -1,0 +1,96 @@
+import type { Lang } from "../config";
+
+/**
+ * Print / invoice / receipt documents and brand strings. Merged into the master
+ * `dict` by dictionary.ts. Keys namespaced `prn.*` (shared print chrome),
+ * `inv.*` (sales invoice), `pgrn.*` (purchase GRN print), `rcpt.*` (receipt),
+ * `brand.*` (shop brand strapline).
+ */
+export const print: Record<string, Record<Lang, string>> = {
+  /* --------------------- prn.* shared print chrome ------------------------ */
+  "prn.receiverSignature": { en: "Receiver's signature", hi: "प्राप्तकर्ता के हस्ताक्षर", hg: "Receiver ke sign" },
+  "prn.signatureAndDate": { en: "Signature & date", hi: "हस्ताक्षर व तारीख", hg: "Sign & Tareekh" },
+  "prn.for": { en: "For", hi: "की ओर से", hg: "Ki taraf se" },
+  "prn.authorisedSignatory": { en: "Authorised signatory", hi: "अधिकृत हस्ताक्षरकर्ता", hg: "Authorised Signatory" },
+  "prn.computerGenerated": { en: "Computer-generated document.", hi: "यह कंप्यूटर-जनित दस्तावेज़ है।", hg: "Ye computer-generated document hai." },
+  "prn.printed": { en: "Printed:", hi: "मुद्रित:", hg: "Print kiya:" },
+  "prn.duplicateCopy": { en: "Duplicate Copy", hi: "डुप्लीकेट प्रति", hg: "Duplicate Copy" },
+  "prn.dueDate": { en: "Due date", hi: "देय तिथि", hg: "Due date" },
+  "prn.itemDetails": { en: "Item Details", hi: "आइटम विवरण", hg: "Item Details" },
+  "prn.sr": { en: "SR", hi: "क्र.सं.", hg: "SR" },
+  "prn.particulars": { en: "Particulars", hi: "विवरण", hg: "Particulars" },
+  "prn.batch": { en: "Batch", hi: "बैच", hg: "Batch" },
+  "prn.expiry": { en: "Expiry", hi: "एक्सपायरी", hg: "Expiry" },
+  "prn.qty": { en: "Qty", hi: "मात्रा", hg: "Qty" },
+  "prn.rate": { en: "Rate", hi: "दर", hg: "Rate" },
+  "prn.gst": { en: "GST", hi: "GST", hg: "GST" },
+  "prn.hsnLabel": { en: "HSN", hi: "HSN", hg: "HSN" },
+  "prn.totalItems": { en: "Total items", hi: "कुल आइटम", hg: "Total items" },
+  "prn.inWords": { en: "In words", hi: "शब्दों में", hg: "Shabdon me" },
+  "prn.terms": { en: "Terms:", hi: "शर्तें:", hg: "Shartein:" },
+  "prn.payViaUpi": { en: "Pay via UPI:", hi: "UPI से भुगतान करें:", hg: "UPI se pay karein:" },
+  "prn.taxable": { en: "Taxable", hi: "कर योग्य", hg: "Taxable" },
+  "prn.igst": { en: "IGST", hi: "IGST", hg: "IGST" },
+  "prn.cgst": { en: "CGST", hi: "CGST", hg: "CGST" },
+  "prn.sgst": { en: "SGST", hi: "SGST", hg: "SGST" },
+  "prn.otherCharges": { en: "Other charges", hi: "अन्य शुल्क", hg: "Other charges" },
+  "prn.roundOff": { en: "Round off", hi: "राउंड ऑफ", hg: "Round off" },
+  "prn.grandTotal": { en: "Grand Total", hi: "कुल योग", hg: "Grand Total" },
+  "prn.taxSummaryHsnWise": { en: "Tax summary (HSN-wise)", hi: "कर सारांश (HSN अनुसार)", hg: "Tax summary (HSN ke hisaab se)" },
+  "prn.tax": { en: "Tax", hi: "कर", hg: "Tax" },
+  "prn.phPrefix": { en: "Ph:", hi: "फ़ोन:", hg: "Ph:" },
+  "prn.gstinPrefix": { en: "GSTIN:", hi: "GSTIN:", hg: "GSTIN:" },
+  "prn.pesticideLic": { en: "Pesticide Lic:", hi: "कीटनाशक लाइसेंस:", hg: "Pesticide Lic:" },
+  "prn.seedLic": { en: "Seed Lic:", hi: "बीज लाइसेंस:", hg: "Seed Lic:" },
+  "prn.fertilizerLic": { en: "Fertilizer Lic:", hi: "उर्वरक लाइसेंस:", hg: "Fertilizer Lic:" },
+
+  /* ------------------------- inv.* sales invoice --------------------------- */
+  "inv.invoiceNo": { en: "Invoice No", hi: "बिल नंबर", hg: "Invoice No" },
+  "inv.taxInvoice": { en: "TAX INVOICE", hi: "कर चालान", hg: "Tax Invoice" },
+  "inv.billTo": { en: "Bill To", hi: "बिल किसको", hg: "Bill kisko" },
+  "inv.mobilePrefix": { en: "Mob:", hi: "मोबाइल:", hg: "Mobile:" },
+  "inv.invoiceDetails": { en: "Invoice Details", hi: "बिल विवरण", hg: "Invoice Details" },
+  "inv.priceType": { en: "Price type", hi: "मूल्य प्रकार", hg: "Price type" },
+  "inv.payment": { en: "Payment", hi: "भुगतान", hg: "Payment" },
+  "inv.mrp": { en: "MRP", hi: "MRP", hg: "MRP" },
+  "inv.received": { en: "Received", hi: "प्राप्त राशि", hg: "Received" },
+  "inv.balanceDue": { en: "Balance due", hi: "शेष राशि", hg: "Balance due" },
+  "inv.thankYouFooter": { en: "Thank you for your business.", hi: "आपके व्यापार के लिए धन्यवाद।", hg: "Aapke business ke liye dhanyavaad." },
+
+  /* ----------------------- pgrn.* purchase GRN print ------------------------ */
+  "pgrn.grnNo": { en: "GRN No", hi: "GRN नंबर", hg: "GRN No" },
+  "pgrn.suppBill": { en: "Supp. Bill", hi: "आपूर्तिकर्ता बिल", hg: "Supplier ka Bill" },
+  "pgrn.title": { en: "PURCHASE GRN", hi: "खरीद जीआरएन", hg: "Purchase GRN" },
+  "pgrn.supplier": { en: "Supplier", hi: "आपूर्तिकर्ता", hg: "Supplier" },
+  "pgrn.billNo": { en: "Bill No:", hi: "बिल नंबर:", hg: "Bill No:" },
+  "pgrn.billDate": { en: "Bill Date:", hi: "बिल तारीख:", hg: "Bill Date:" },
+  "pgrn.orderDetails": { en: "Order Details", hi: "ऑर्डर विवरण", hg: "Order Details" },
+  "pgrn.deliverTo": { en: "Deliver to", hi: "डिलीवरी स्थान", hg: "Deliver to" },
+  "pgrn.landed": { en: "Landed", hi: "लैंडेड लागत", hg: "Landed cost" },
+  "pgrn.remark": { en: "Remark:", hi: "टिप्पणी:", hg: "Remark:" },
+  "pgrn.freight": { en: "Freight", hi: "भाड़ा", hg: "Freight" },
+  "pgrn.paid": { en: "Paid", hi: "भुगतान किया", hg: "Paid" },
+  "pgrn.balancePayable": { en: "Balance payable", hi: "देय शेष राशि", hg: "Balance payable" },
+  "pgrn.receivedCheckedBy": { en: "Received / checked by", hi: "प्राप्त / जाँचकर्ता", hg: "Received / check karne wala" },
+  "pgrn.footerNote": { en: "Goods received subject to the agreed terms.", hi: "माल सहमत शर्तों के अधीन प्राप्त किया गया।", hg: "Maal agreed shartein ke adhin receive kiya gaya." },
+
+  /* ------------------------ rcpt.* payment receipt -------------------------- */
+  "rcpt.receiptNo": { en: "Receipt No", hi: "रसीद नंबर", hg: "Receipt No" },
+  "rcpt.title": { en: "PAYMENT RECEIPT", hi: "भुगतान रसीद", hg: "Payment Receipt" },
+  "rcpt.receivedFrom": { en: "Received From", hi: "किससे प्राप्त हुआ", hg: "Kisse mila" },
+  "rcpt.receiptDetails": { en: "Receipt Details", hi: "रसीद विवरण", hg: "Receipt Details" },
+  "rcpt.mode": { en: "Mode", hi: "माध्यम", hg: "Mode" },
+  "rcpt.reference": { en: "Reference", hi: "संदर्भ", hg: "Reference" },
+  "rcpt.remarks": { en: "Remarks:", hi: "टिप्पणी:", hg: "Remarks:" },
+  "rcpt.amountReceived": { en: "Amount received", hi: "प्राप्त राशि", hg: "Amount received" },
+  "rcpt.appliedToBills": { en: "Applied to bills", hi: "बिलों में समायोजित", hg: "Bills me adjust hui" },
+  "rcpt.onAccount": { en: "On account", hi: "खाते में जमा", hg: "On account (advance)" },
+  "rcpt.thankYouFooter": { en: "Thank you for your payment.", hi: "आपके भुगतान के लिए धन्यवाद।", hg: "Aapke payment ke liye dhanyavaad." },
+
+  /* ------------------------- brand.* login strapline ------------------------ */
+  "brand.strapline": {
+    en: "Seeds • Fertilizers • Pesticides • Insecticides",
+    hi: "बीज • खाद • कीटनाशक • फफूँदनाशक",
+    hg: "Beej • Khaad • Keetnaashak • Fungicide",
+  },
+};
