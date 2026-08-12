@@ -65,7 +65,7 @@ export default function ReportsPage() {
       <PageHeader title={t("rep.title")} description={t("rep.desc")} />
 
       <Tabs defaultValue="stock">
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto flex-wrap">
           {can(Permissions.Report.Stock) && <TabsTrigger value="stock">{t("rep.tabStock")}</TabsTrigger>}
           {can(Permissions.Report.Stock) && <TabsTrigger value="warehouse">{t("rep.tabWarehouse")}</TabsTrigger>}
           {can(Permissions.Report.Stock) && <TabsTrigger value="expiry">{t("rep.tabExpiry")}</TabsTrigger>}

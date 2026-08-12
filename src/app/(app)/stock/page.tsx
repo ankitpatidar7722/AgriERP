@@ -60,7 +60,7 @@ export default function StockPage() {
       />
 
       <Tabs defaultValue="ledger">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="ledger">{t("stock.tabLedger")}</TabsTrigger>
           <TabsTrigger value="batches">{t("stock.tabBatches")}</TabsTrigger>
           <TabsTrigger value="verification">{t("stock.tabVerification")}</TabsTrigger>

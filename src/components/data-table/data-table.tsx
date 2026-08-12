@@ -182,7 +182,9 @@ export function DataTable<T>({
         enableRowSelection={false}
         pageSize={25}
         stickyHeader
-        headerActions={filters}
+        // Wrap the filter controls so several fixed-width Selects/date inputs
+        // stack across rows on a phone instead of overflowing the header.
+        headerActions={filters ? <div className="flex flex-wrap items-center gap-2">{filters}</div> : undefined}
       />
     </div>
   );

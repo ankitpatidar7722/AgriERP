@@ -328,7 +328,7 @@ export function ShopMasterTab() {
           <DialogHeader>
             <DialogTitle>{view?.shopName ?? t("shop.shopWord")}</DialogTitle>
           </DialogHeader>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
             <ViewRow label={t("shop.owner")} value={view?.ownerName} />
             <ViewRow label={t("common.mobile")} value={view?.mobileNo} />
             <ViewRow label={t("shop.gstNo")} value={view?.gstNo} />

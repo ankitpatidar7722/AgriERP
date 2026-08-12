@@ -90,7 +90,7 @@ export default function CustomerProfilePage() {
 
       {/* -------------------------------- tabs -------------------------------- */}
       <Tabs defaultValue="ledger">
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="ledger">
             <BookOpen className="mr-1.5 size-4" />
             {t("profile.ledger")}
