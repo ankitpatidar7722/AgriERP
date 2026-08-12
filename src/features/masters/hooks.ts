@@ -73,6 +73,15 @@ export const shopHooks = createMasterHooks<ShopListDto, ShopDto, SaveShopRequest
   "Shop",
 );
 
+/** The active shop's identity for the app header (name, city). Any signed-in user. */
+export function useCurrentShop() {
+  return useQuery({
+    queryKey: ["shops", "current"],
+    queryFn: () => apiGet<ShopListDto | null>("/shops/current"),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export const warehouseHooks = createMasterHooks<
   WarehouseListDto,
   WarehouseDto,
@@ -138,6 +147,19 @@ export function useCustomerLookup(search: string) {
     queryKey: ["customers", "lookup", search],
     queryFn: () => apiGet<LookupDto[]>("/customers/lookup", { search: search || undefined }),
     staleTime: 30_000,
+  });
+}
+
+export function useSupplierLedger(id: number | null, from?: string | null, to?: string | null) {
+  return useQuery({
+    queryKey: ["suppliers", "ledger", id, from, to],
+    queryFn: () =>
+      apiGet<import("./types").SupplierLedgerDto>(`/suppliers/${id}/ledger`, {
+        from: from || undefined,
+        to: to || undefined,
+      }),
+    enabled: id != null && id > 0,
+    placeholderData: (previous) => previous,
   });
 }
 

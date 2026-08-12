@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarModules } from "@/features/navigation/hooks";
+import { useCurrentShop } from "@/features/masters/hooks";
 import { useLang } from "@/features/i18n/provider";
 import type { SidebarGroup } from "@/features/navigation/types";
 import { brand } from "./nav-config";
@@ -52,12 +53,26 @@ export function SidebarNav({ onNavigate, variant = "rail", collapsed = false, on
    * is nothing left to sort or filter on this side.
    */
   const { data: sections = [] } = useSidebarModules();
+  const { data: shop } = useCurrentShop();
 
-  // startsWith, so /items/12 keeps Items highlighted.
-  const isActive = useCallback(
-    (href: string) => pathname === href || pathname.startsWith(`${href}/`),
-    [pathname],
-  );
+  // A route can be a prefix of another (Purchase GRN "/purchases" is a prefix of
+  // Purchase Order "/purchases/orders"), so a plain startsWith lights up both.
+  // Resolve it by longest match: among every module whose route prefixes the
+  // current path (exactly, or followed by "/", so /items/12 still lights Items),
+  // only the deepest one is active.
+  const activeHref = useMemo(() => {
+    let best: string | null = null;
+    for (const section of sections) {
+      for (const mod of section.modules) {
+        const href = mod.moduleName;
+        const matches = pathname === href || pathname.startsWith(`${href}/`);
+        if (matches && (best === null || href.length > best.length)) best = href;
+      }
+    }
+    return best;
+  }, [sections, pathname]);
+
+  const isActive = useCallback((href: string) => href === activeHref, [activeHref]);
 
   const isDrawer = variant === "drawer";
   // The drawer has no hover, so it is always the full tree. On the desktop rail
@@ -83,10 +98,10 @@ export function SidebarNav({ onNavigate, variant = "rail", collapsed = false, on
             </span>
             <span className="flex min-w-0 flex-col leading-tight">
               <span className="truncate text-sm font-semibold text-white">
-                {brand.shortName}
+                {shop?.shopName?.trim() || brand.shortName}
               </span>
               <span className="truncate text-xs text-sidebar-foreground/60">
-                {brand.tagline}
+                {shop?.city?.trim() || brand.tagline}
               </span>
             </span>
           </>

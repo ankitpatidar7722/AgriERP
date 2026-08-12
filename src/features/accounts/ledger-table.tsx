@@ -1,16 +1,35 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CustomerLedgerDto } from "@/features/masters/types";
 import { useT } from "@/features/i18n/provider";
 import { formatCurrency, formatDate } from "@/lib/format";
+
+/** The subset of a ledger DTO this table renders - customer OR supplier both fit. */
+export interface LedgerData {
+  fromDate?: string | null;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+  rows: {
+    seq: number;
+    transactionDate: string;
+    voucherType: string;
+    voucherNumber?: string | null;
+    narration?: string | null;
+    debit: number;
+    credit: number;
+    runningBalance: number;
+    createdByName?: string | null;
+  }[];
+}
 
 /** A Tally-style ledger: opening row, one row per voucher with a running balance, then a closing total. */
 export function LedgerTable({
   data,
   isLoading,
 }: {
-  data?: CustomerLedgerDto;
+  data?: LedgerData;
   isLoading?: boolean;
 }) {
   const t = useT();

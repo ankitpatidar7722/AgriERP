@@ -34,6 +34,15 @@ interface ReqLine extends RequisitionSeed {
   key: string;
   expectedDate: string;
   remarks: string;
+  /** How many packs to buy. Required Qty is derived: packs x qtyPerPack. */
+  packs: number;
+  /** Units contained in one pack (e.g. 50 kg per bag). */
+  qtyPerPack: number;
+}
+
+/** Required Qty = packs x qty-per-pack, rounded to the 0.001 the field allows. */
+function packQty(packs: number, qtyPerPack: number): number {
+  return Math.round(packs * qtyPerPack * 1000) / 1000;
 }
 
 interface Props {
@@ -74,6 +83,10 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
           unitId: l.unitId,
           unitCode: l.unitCode,
           requiredQty: l.requiredQty,
+          // The saved requisition keeps only the total, so show it as N packs of
+          // 1; the buyer can re-split it into packs x qty-per-pack if they wish.
+          packs: l.requiredQty,
+          qtyPerPack: 1,
           estimatedRate: l.estimatedRate,
           expectedDate: l.expectedDate ? l.expectedDate.slice(0, 10) : "",
           remarks: l.remarks ?? "",
@@ -87,6 +100,8 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
       (seed ?? []).map((s) => ({
         ...s,
         key: `seed-${s.itemId}`,
+        packs: s.requiredQty,
+        qtyPerPack: 1,
         expectedDate: "",
         remarks: "",
       })),
@@ -109,6 +124,8 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
           unitId: row.unitId,
           unitCode: row.unitCode,
           requiredQty: 1,
+          packs: 1,
+          qtyPerPack: 1,
           estimatedRate: row.purchaseRate > 0 ? row.purchaseRate : 0,
           expectedDate: "",
           remarks: "",
@@ -121,11 +138,28 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
     setLines((current) => current.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
 
+  /** Edit packs or qty-per-pack and re-derive Required Qty from the two. */
+  function updatePack(key: string, patch: Partial<Pick<ReqLine, "packs" | "qtyPerPack">>) {
+    setLines((current) =>
+      current.map((l) => {
+        if (l.key !== key) return l;
+        const next = { ...l, ...patch };
+        next.requiredQty = packQty(next.packs, next.qtyPerPack);
+        return next;
+      }),
+    );
+  }
+
   function removeLine(key: string) {
     setLines((current) => current.filter((l) => l.key !== key));
   }
 
   async function save() {
+    // Once a PO has been raised the requisition is Partial/Converted and frozen.
+    if (editModel && editModel.status !== "Open") {
+      toast.error(t("pur.alreadyTransacted"));
+      return;
+    }
     if (lines.length === 0) {
       toast.error(t("reqm.toastNeedItem"));
       return;
@@ -215,6 +249,8 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
                 <tr>
                   <th className="w-8 px-2 py-2 text-right font-medium">#</th>
                   <th className="min-w-[240px] px-3 py-2 text-left font-medium">{t("pur.item")}</th>
+                  <th className="w-28 px-2 py-2 text-right font-medium">{t("reqm.noOfPacks")}</th>
+                  <th className="w-28 px-2 py-2 text-right font-medium">{t("reqm.qtyPerPack")}</th>
                   <th className="w-32 px-2 py-2 text-right font-medium">{t("reqm.requiredQty")}</th>
                   <th className="w-20 px-2 py-2 text-left font-medium">{t("req.unit")}</th>
                   <th className="w-32 px-2 py-2 text-right font-medium">{t("req.estRate")}</th>
@@ -235,12 +271,32 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
                       <Input
                         type="number"
                         min={0}
-                        step="0.001"
-                        value={line.requiredQty}
-                        onChange={(e) => updateLine(line.key, { requiredQty: Number(e.target.value) })}
+                        step="1"
+                        value={line.packs}
+                        onChange={(e) => updatePack(line.key, { packs: Number(e.target.value) })}
                         className="h-8 text-right tabular"
-                        aria-label={`Required quantity for ${line.itemName}`}
+                        aria-label={`Number of packs for ${line.itemName}`}
                       />
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.001"
+                        value={line.qtyPerPack}
+                        onChange={(e) => updatePack(line.key, { qtyPerPack: Number(e.target.value) })}
+                        className="h-8 text-right tabular"
+                        aria-label={`Quantity per pack for ${line.itemName}`}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      {/* Derived: packs x qty-per-pack. Read-only so the two inputs stay the source. */}
+                      <div
+                        className="flex h-8 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium"
+                        aria-label={`Required quantity for ${line.itemName}`}
+                      >
+                        {line.requiredQty}
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-muted-foreground">{line.unitCode}</td>
                     <td className="px-2 py-2">

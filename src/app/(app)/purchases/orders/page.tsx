@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, FileText, PackageCheck, Pencil, Plus, ShoppingCart } from "lucide-react";
+import { ClipboardList, FileText, PackageCheck, Pencil, Plus, Printer, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,9 +19,9 @@ import {
 } from "@/components/common/status-badge";
 import { DataTable, type DataColumn } from "@/components/data-table/data-table";
 import { useAuth } from "@/features/auth/auth-context";
-import { usePurchaseOrders, usePurchaseRequisitions } from "@/features/transactions/hooks";
+import { usePurchaseOrderItems, usePurchaseRequisitions } from "@/features/transactions/hooks";
 import type {
-  PurchaseOrderDto,
+  PurchaseOrderItemRow,
   PurchaseOrderQuery,
   PurchaseOrderStatus,
   PurchaseRequisitionDto,
@@ -47,11 +47,13 @@ export default function PurchaseOrdersPage() {
     pendingOnly: true,
   });
 
-  const list = usePurchaseOrders(query);
+  const list = usePurchaseOrderItems(query);
   const pendingReqs = usePurchaseRequisitions(reqQuery);
   const canCreate = can(Permissions.Purchase.Order);
 
-  const orderColumns: DataColumn<PurchaseOrderDto>[] = [
+  // Item-wise: one row per order line. A 5-item order shows as 5 rows, each
+  // carrying its PO number; opening any row shows the whole order.
+  const orderColumns: DataColumn<PurchaseOrderItemRow>[] = [
     {
       key: "number",
       header: t("po.colOrder"),
@@ -65,35 +67,64 @@ export default function PurchaseOrdersPage() {
       exportValue: (row) => row.orderNumber,
     },
     {
-      key: "supplier",
-      header: t("pur.supplier"),
-      sortable: true,
-      cell: (row) => <div className="max-w-[240px] truncate">{row.supplierName}</div>,
-      exportValue: (row) => row.supplierName,
+      key: "itemCode",
+      header: t("po.itemCodeCol"),
+      cell: (row) => <span className="tabular text-muted-foreground">{row.itemCode || "-"}</span>,
+      exportValue: (row) => row.itemCode,
+    },
+    {
+      key: "itemName",
+      header: t("po.itemNameCol"),
+      cell: (row) => <div className="max-w-[220px] truncate font-medium">{row.itemName}</div>,
+      exportValue: (row) => row.itemName,
+    },
+    {
+      key: "itemGroup",
+      header: t("po.itemGroupCol"),
+      hideBelow: "lg",
+      cell: (row) => <span className="text-muted-foreground">{row.itemGroupName || "-"}</span>,
+      exportValue: (row) => row.itemGroupName,
+    },
+    {
+      key: "itemSubGroup",
+      header: t("po.itemSubGroupCol"),
+      hideBelow: "lg",
+      cell: (row) => <span className="text-muted-foreground">{row.itemSubGroupName || "-"}</span>,
+      exportValue: (row) => row.itemSubGroupName,
     },
     {
       key: "qty",
       header: t("pur.qty"),
       align: "right",
-      hideBelow: "sm",
-      cell: (row) => <span className="tabular">{row.totalQty}</span>,
-      exportValue: (row) => row.totalQty,
+      cell: (row) => (
+        <span className="tabular">
+          {formatQuantity(row.orderedQty)}{" "}
+          <span className="text-xs text-muted-foreground">{row.unitCode}</span>
+        </span>
+      ),
+      exportValue: (row) => row.orderedQty,
+    },
+    {
+      key: "rate",
+      header: t("po.purchaseUnitRateCol"),
+      align: "right",
+      hideBelow: "md",
+      cell: (row) => <span className="tabular">{formatCurrency(row.rate)}</span>,
+      exportValue: (row) => row.rate,
     },
     {
       key: "amount",
-      header: t("pur.estValue"),
-      sortable: true,
+      header: t("po.totalAmountCol"),
       align: "right",
-      cell: (row) => formatCurrency(row.estimatedValue),
-      exportValue: (row) => row.estimatedValue,
+      cell: (row) => formatCurrency(row.estimatedAmount),
+      exportValue: (row) => row.estimatedAmount,
     },
     {
-      key: "expected",
-      header: t("pur.expected"),
-      align: "right",
-      hideBelow: "lg",
-      cell: (row) => (row.expectedDate ? formatDate(row.expectedDate) : "-"),
-      exportValue: (row) => (row.expectedDate ? formatDate(row.expectedDate) : ""),
+      key: "supplier",
+      header: t("pur.supplier"),
+      hideBelow: "md",
+      cell: (row) => <div className="max-w-[200px] truncate">{row.supplierName}</div>,
+      exportValue: (row) => row.supplierName,
     },
     {
       key: "status",
@@ -112,11 +143,21 @@ export default function PurchaseOrdersPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => router.push(`/purchases/orders/${row.purchaseOrderId}`)}
-            aria-label={`Open ${row.orderNumber}`}
-            title={t("pur.openAction")}
+            onClick={() => router.push(`/purchases/orders/new?editId=${row.purchaseOrderId}`)}
+            aria-label={`Edit ${row.orderNumber}`}
+            title={t("common.edit", "Edit")}
           >
             <Pencil className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => router.push(`/purchases/orders/${row.purchaseOrderId}/print`)}
+            aria-label={`Print ${row.orderNumber}`}
+            title={t("common.print")}
+          >
+            <Printer className="size-4" />
           </Button>
           {(row.status === "Open" || row.status === "Partial") && can(Permissions.Purchase.Create) && (
             <Button
@@ -252,8 +293,7 @@ export default function PurchaseOrdersPage() {
           isFetching={list.isFetching}
           query={query}
           onQueryChange={(next) => setQuery(next as PurchaseOrderQuery)}
-          getRowId={(row) => row.purchaseOrderId}
-          onRowClick={(row) => router.push(`/purchases/orders/${row.purchaseOrderId}`)}
+          getRowId={(row) => row.purchaseOrderDetailId}
           searchPlaceholder={t("pur.searchOrderNumberOrSupplier")}
           emptyMessage={t("po.empty")}
           exportFileName="purchase-orders"

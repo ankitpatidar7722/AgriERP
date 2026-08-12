@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/common/page-header";
 import { ExpiryBadge, StockStatusBadge } from "@/components/common/status-badge";
@@ -11,16 +18,19 @@ import { DataTable, type DataColumn } from "@/components/data-table/data-table";
 import { StatCard } from "@/features/dashboard/stat-card";
 import { useAuth } from "@/features/auth/auth-context";
 import {
+  useBatchStock,
   useExpiryReport,
   useGstReport,
   useProfitReport,
   usePurchaseReport,
+  useSalesByCustomer,
   useSalesReport,
   useStockReport,
   useStockValuation,
 } from "@/features/transactions/hooks";
 import type {
   BatchStockView,
+  CustomerSalesRow,
   ItemStockView,
   ProfitReportRow,
   PurchaseReportRow,
@@ -57,16 +67,20 @@ export default function ReportsPage() {
       <Tabs defaultValue="stock">
         <TabsList className="flex-wrap">
           {can(Permissions.Report.Stock) && <TabsTrigger value="stock">{t("rep.tabStock")}</TabsTrigger>}
+          {can(Permissions.Report.Stock) && <TabsTrigger value="warehouse">{t("rep.tabWarehouse")}</TabsTrigger>}
           {can(Permissions.Report.Stock) && <TabsTrigger value="expiry">{t("rep.tabExpiry")}</TabsTrigger>}
           {can(Permissions.Report.Sales) && <TabsTrigger value="sales">{t("rep.tabSales")}</TabsTrigger>}
+          {can(Permissions.Report.Sales) && <TabsTrigger value="custSales">{t("rep.tabCustomerSales")}</TabsTrigger>}
           {can(Permissions.Report.Purchase) && <TabsTrigger value="purchase">{t("rep.tabPurchase")}</TabsTrigger>}
           {can(Permissions.Report.Profit) && <TabsTrigger value="profit">{t("rep.tabProfit")}</TabsTrigger>}
           {can(Permissions.Report.Gst) && <TabsTrigger value="gst">{t("rep.tabGst")}</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="stock" className="mt-4"><StockTab /></TabsContent>
+        <TabsContent value="warehouse" className="mt-4"><WarehouseStockTab /></TabsContent>
         <TabsContent value="expiry" className="mt-4"><ExpiryTab /></TabsContent>
         <TabsContent value="sales" className="mt-4"><SalesTab /></TabsContent>
+        <TabsContent value="custSales" className="mt-4"><CustomerSalesTab /></TabsContent>
         <TabsContent value="purchase" className="mt-4"><PurchaseTab /></TabsContent>
         <TabsContent value="profit" className="mt-4"><ProfitTab /></TabsContent>
         <TabsContent value="gst" className="mt-4"><GstTab /></TabsContent>
@@ -222,6 +236,198 @@ function StockTab() {
   );
 }
 
+/* ------------------------------ warehouse stock --------------------------- */
+
+interface WarehouseRow {
+  key: string;
+  locationId: number;
+  locationName: string;
+  itemId: number;
+  itemCode: string;
+  itemName: string;
+  itemSubGroupName: string;
+  unitCode: string;
+  totalQty: number;
+  stockValue: number;
+  batchCount: number;
+  nearestExpiry: string | null;
+}
+
+/**
+ * How much of each item sits in each warehouse. Stock is held per storage
+ * location, so "warehouse" here IS that location - the real bucket a quantity
+ * lives in (WarehouseMaster is only a label and carries no quantity). Every
+ * batch is rolled up to one row per (warehouse, item): total quantity, value,
+ * batch count and the nearest expiry among them.
+ */
+function WarehouseStockTab() {
+  const t = useT();
+  const batches = useBatchStock();
+  const [locationId, setLocationId] = useState<number | null>(null);
+
+  const rows = useMemo<WarehouseRow[]>(() => {
+    const map = new Map<string, WarehouseRow>();
+    for (const b of batches.data ?? []) {
+      const key = `${b.locationId}::${b.itemId}`;
+      let row = map.get(key);
+      if (!row) {
+        row = {
+          key,
+          locationId: b.locationId,
+          locationName: b.locationName,
+          itemId: b.itemId,
+          itemCode: b.itemCode,
+          itemName: b.itemName,
+          itemSubGroupName: b.itemSubGroupName,
+          unitCode: b.unitCode,
+          totalQty: 0,
+          stockValue: 0,
+          batchCount: 0,
+          nearestExpiry: null,
+        };
+        map.set(key, row);
+      }
+      row.totalQty += b.currentQty;
+      row.stockValue += b.stockValueAtCost;
+      row.batchCount += 1;
+      if (b.expiryDate && (row.nearestExpiry === null || b.expiryDate < row.nearestExpiry)) {
+        row.nearestExpiry = b.expiryDate;
+      }
+    }
+    return [...map.values()].sort(
+      (a, b) => a.locationName.localeCompare(b.locationName) || a.itemName.localeCompare(b.itemName),
+    );
+  }, [batches.data]);
+
+  const warehouses = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const b of batches.data ?? []) if (!seen.has(b.locationId)) seen.set(b.locationId, b.locationName);
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [batches.data]);
+
+  const filtered = locationId ? rows.filter((r) => r.locationId === locationId) : rows;
+  const { query, setQuery, result } = usePagedArray(filtered);
+
+  const totalQty = filtered.reduce((sum, r) => sum + r.totalQty, 0);
+  const totalValue = filtered.reduce((sum, r) => sum + r.stockValue, 0);
+  const warehouseCount = new Set(filtered.map((r) => r.locationId)).size;
+
+  const columns: DataColumn<WarehouseRow>[] = [
+    {
+      key: "warehouse",
+      header: t("rep.warehouse"),
+      sortable: true,
+      cell: (row) => <span className="font-medium">{row.locationName}</span>,
+      exportValue: (row) => row.locationName,
+    },
+    {
+      key: "code",
+      header: t("rep.itemCode"),
+      hideBelow: "md",
+      cell: (row) => <span className="text-muted-foreground">{row.itemCode || "-"}</span>,
+      exportValue: (row) => row.itemCode,
+    },
+    {
+      key: "item",
+      header: t("rep.item"),
+      sortable: true,
+      cell: (row) => (
+        <div className="min-w-0 max-w-[260px]">
+          <div className="truncate">{row.itemName}</div>
+          <div className="truncate text-xs text-muted-foreground">{row.itemSubGroupName}</div>
+        </div>
+      ),
+      exportValue: (row) => row.itemName,
+    },
+    {
+      key: "batches",
+      header: t("rep.batches"),
+      align: "right",
+      hideBelow: "lg",
+      cell: (row) => row.batchCount,
+      exportValue: (row) => row.batchCount,
+    },
+    {
+      key: "qty",
+      header: t("rep.onHand"),
+      align: "right",
+      sortable: true,
+      cell: (row) => (
+        <span className="font-medium">
+          {formatQuantity(row.totalQty)}{" "}
+          <span className="text-xs text-muted-foreground">{row.unitCode}</span>
+        </span>
+      ),
+      exportValue: (row) => row.totalQty,
+    },
+    {
+      key: "value",
+      header: t("rep.valueAtCost"),
+      align: "right",
+      sortable: true,
+      cell: (row) => formatCurrency(row.stockValue),
+      exportValue: (row) => row.stockValue,
+    },
+    {
+      key: "expiry",
+      header: t("rep.nearestExpiry"),
+      hideBelow: "lg",
+      cell: (row) => (row.nearestExpiry ? formatDate(row.nearestExpiry) : "-"),
+      exportValue: (row) => (row.nearestExpiry ? formatDate(row.nearestExpiry) : ""),
+    },
+  ];
+
+  return (
+    <>
+      <SummaryStrip
+        items={[
+          { label: t("rep.warehouses"), value: String(warehouseCount) },
+          { label: t("rep.items"), value: String(filtered.length) },
+          { label: t("rep.totalQuantity"), value: formatQuantity(totalQty) },
+          { label: t("rep.valueAtCost"), value: formatCurrency(totalValue) },
+        ]}
+        isLoading={batches.isLoading}
+      />
+
+      <div className="no-print mb-3 flex flex-wrap items-center gap-2">
+        <Select
+          value={locationId ? String(locationId) : "all"}
+          onValueChange={(v) => {
+            setLocationId(v === "all" ? null : Number(v));
+            setQuery({ page: 1, pageSize: query.pageSize });
+          }}
+        >
+          <SelectTrigger className="w-[220px]" aria-label={t("rep.warehouse")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("rep.allWarehouses")}</SelectItem>
+            {warehouses.map((w) => (
+              <SelectItem key={w.id} value={String(w.id)}>
+                {w.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <DataTable
+        columns={columns}
+        result={result}
+        isLoading={batches.isLoading}
+        query={query}
+        onQueryChange={(next) => setQuery({ page: next.page ?? 1, pageSize: next.pageSize ?? 25 })}
+        getRowId={(row) => row.key}
+        emptyMessage={t("rep.nothingToShow")}
+        exportFileName="warehouse-stock"
+        exportTitle={t("rep.warehouseStockTitle")}
+      />
+    </>
+  );
+}
+
 /* --------------------------------- expiry --------------------------------- */
 
 function ExpiryTab() {
@@ -370,6 +576,84 @@ function SalesTab() {
         emptyMessage={t("rep.noSalesPeriod")}
         exportFileName="sales-report"
         exportTitle={`${t("rep.salesTitle")} ${formatDate(from)} - ${formatDate(to)}`}
+      />
+    </>
+  );
+}
+
+/* ----------------------------- customer sales ----------------------------- */
+
+function CustomerSalesTab() {
+  const t = useT();
+  const [from, setFrom] = useState(monthStart());
+  const [to, setTo] = useState(toIsoDate(new Date()));
+  const report = useSalesByCustomer(from, to);
+  const { query, setQuery, result } = usePagedArray(report.data ?? []);
+
+  const columns: DataColumn<CustomerSalesRow>[] = [
+    {
+      key: "customer",
+      header: t("rep.customer"),
+      sortable: true,
+      cell: (r) => (
+        <div className="min-w-0 max-w-[260px]">
+          <div className="truncate font-medium">{r.customerName}</div>
+          {r.village && <div className="truncate text-xs text-muted-foreground">{r.village}</div>}
+        </div>
+      ),
+      exportValue: (r) => r.customerName,
+    },
+    { key: "bills", header: t("rep.bills"), align: "right", sortable: true, cell: (r) => r.invoiceCount, exportValue: (r) => r.invoiceCount },
+    { key: "taxable", header: t("rep.taxable"), align: "right", hideBelow: "md", cell: (r) => formatCurrency(r.taxableAmount), exportValue: (r) => r.taxableAmount },
+    { key: "tax", header: t("rep.tax"), align: "right", hideBelow: "lg", cell: (r) => formatCurrency(r.taxAmount), exportValue: (r) => r.taxAmount },
+    { key: "total", header: t("rep.sales"), align: "right", sortable: true, cell: (r) => formatCurrency(r.totalSales), exportValue: (r) => r.totalSales },
+    { key: "received", header: t("rep.received"), align: "right", hideBelow: "lg", cell: (r) => formatCurrency(r.amountReceived), exportValue: (r) => r.amountReceived },
+    {
+      key: "balance",
+      header: t("rep.balance"),
+      align: "right",
+      sortable: true,
+      cell: (r) =>
+        r.balanceAmount > 0 ? (
+          <span className="font-medium text-destructive">{formatCurrency(r.balanceAmount)}</span>
+        ) : (
+          <span className="text-muted-foreground">0</span>
+        ),
+      exportValue: (r) => r.balanceAmount,
+    },
+  ];
+
+  const totals = (report.data ?? []).reduce(
+    (acc, r) => ({
+      total: acc.total + r.totalSales,
+      received: acc.received + r.amountReceived,
+      balance: acc.balance + r.balanceAmount,
+    }),
+    { total: 0, received: 0, balance: 0 },
+  );
+
+  return (
+    <>
+      <DateRange from={from} to={to} onChange={(f, d) => { setFrom(f); setTo(d); }} />
+      <SummaryStrip
+        items={[
+          { label: t("rep.customers"), value: String((report.data ?? []).length) },
+          { label: t("rep.sales"), value: formatCurrency(totals.total) },
+          { label: t("rep.received"), value: formatCurrency(totals.received) },
+          { label: t("rep.balance"), value: formatCurrency(totals.balance) },
+        ]}
+        isLoading={report.isLoading}
+      />
+      <DataTable
+        columns={columns}
+        result={result}
+        isLoading={report.isLoading}
+        query={query}
+        onQueryChange={(next) => setQuery({ page: next.page ?? 1, pageSize: next.pageSize ?? 25 })}
+        getRowId={(row) => row.customerId ?? 0}
+        emptyMessage={t("rep.noSalesPeriod")}
+        exportFileName="customer-sales"
+        exportTitle={`${t("rep.customerSalesTitle")} ${formatDate(from)} - ${formatDate(to)}`}
       />
     </>
   );

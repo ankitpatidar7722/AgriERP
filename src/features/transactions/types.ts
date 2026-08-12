@@ -17,6 +17,8 @@ export interface ItemLookupDto {
   shortName?: string | null;
   description?: string | null;
   barcode?: string | null;
+  itemGroupName?: string | null;
+  itemSubGroupName?: string | null;
   unitId: number;
   unitCode: string;
   sellingRate: number;
@@ -196,6 +198,22 @@ export interface InvoicePrintDto {
   amountInWords: string;
 }
 
+export interface SalesOrderCustomerDto {
+  name: string;
+  village?: string | null;
+  mobile?: string | null;
+  gstNumber?: string | null;
+}
+
+/** The sales-order print payload; shop head from ShopMaster, real sale totals. */
+export interface SalesOrderPrintDto {
+  shop: ShopHeaderDto;
+  sale: SaleDto;
+  customer: SalesOrderCustomerDto;
+  taxSummary: InvoiceTaxSummaryDto[];
+  amountInWords: string;
+}
+
 /* ------------------------------- purchases ------------------------------- */
 
 export interface PurchaseLineRequest {
@@ -323,6 +341,9 @@ export interface PurchaseQuery extends QueryParameters {
 export interface PurchaseOrderLineDto {
   purchaseOrderDetailId: number;
   itemId: number;
+  itemCode: string;
+  itemGroupName: string;
+  itemSubGroupName: string;
   itemName: string;
   unitId: number;
   unitCode: string;
@@ -331,6 +352,12 @@ export interface PurchaseOrderLineDto {
   pendingQty: number;
   rate: number;
   estimatedAmount: number;
+  /** Pack breakdown that produced orderedQty, plus the requisition snapshot. */
+  noOfPacks: number;
+  qtyPerPack: number;
+  requiredQty?: number | null;
+  remarks?: string | null;
+  itemRemark?: string | null;
   /** The requisition line this order line drew on, preserved across edits. */
   requisitionDetailId?: number | null;
   gstPercent: number;
@@ -353,12 +380,94 @@ export interface PurchaseOrderDto {
   lines: PurchaseOrderLineDto[];
 }
 
+/** One PO line flattened with its parent order's header, for the item-wise list. */
+export interface PurchaseOrderItemRow {
+  purchaseOrderId: number;
+  orderNumber: string;
+  orderDate: string;
+  expectedDate?: string | null;
+  supplierId: number;
+  supplierName: string;
+  status: PurchaseOrderStatus;
+  purchaseOrderDetailId: number;
+  itemCode: string;
+  itemName: string;
+  itemGroupName: string;
+  itemSubGroupName: string;
+  unitCode: string;
+  orderedQty: number;
+  rate: number;
+  estimatedAmount: number;
+}
+
+/** One GRN (purchase) line flattened with its parent header, for the item-wise list. */
+export interface PurchaseItemRow {
+  purchaseId: number;
+  purchaseNumber: string;
+  purchaseDate: string;
+  supplierId: number;
+  supplierName: string;
+  warehouseName?: string | null;
+  status: DocumentStatus;
+  purchaseDetailId: number;
+  itemCode: string;
+  itemName: string;
+  itemGroupName: string;
+  itemSubGroupName: string;
+  unitCode: string;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+  quantity: number;
+  freeQuantity: number;
+  rate: number;
+  lineTotal: number;
+}
+
+export interface PurchaseOrderSupplierDto {
+  supplierCode: string;
+  supplierName: string;
+  gstNumber?: string | null;
+  address?: string | null;
+  city?: string | null;
+  stateName?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  contactPerson?: string | null;
+  paymentTermDays: number;
+}
+
+/** Everything the printable purchase order renders; shop head from ShopMaster. */
+export interface PurchaseOrderPrintDto {
+  shop: ShopHeaderDto;
+  order: PurchaseOrderDto;
+  supplier: PurchaseOrderSupplierDto;
+  deliveryLocationName?: string | null;
+  isInterState: boolean;
+  taxSummary: InvoiceTaxSummaryDto[];
+  totalPacks: number;
+  subTotal: number;
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  roundOff: number;
+  grandTotal: number;
+  amountInWords: string;
+}
+
 export interface PurchaseOrderLineRequest {
   itemId: number;
+  /** The P.O. qty in purchase units = noOfPacks x qtyPerPack. */
   orderedQty: number;
   unitId?: number | null;
   rate: number;
+  noOfPacks: number;
+  qtyPerPack: number;
+  /** Snapshot of the requisition's required qty; null for a direct order. */
+  requiredQty?: number | null;
   remarks?: string | null;
+  itemRemark?: string | null;
   /** Set when this PO line is raised from a requisition line. */
   requisitionDetailId?: number | null;
 }
@@ -393,6 +502,9 @@ export type PurchaseRequisitionStatus =
 export interface PurchaseRequisitionLineDto {
   requisitionDetailId: number;
   itemId: number;
+  itemCode: string;
+  itemGroupName: string;
+  itemSubGroupName: string;
   itemName: string;
   unitId: number;
   unitCode: string;
@@ -420,6 +532,26 @@ export interface PurchaseRequisitionDto {
   /** Item names on the requisition, for the list grid. */
   itemNames: string[];
   lines: PurchaseRequisitionLineDto[];
+}
+
+/** One requisition line flattened with its parent header, for the item-wise list. */
+export interface PurchaseRequisitionItemRow {
+  requisitionId: number;
+  requisitionNumber: string;
+  requisitionDate: string;
+  locationId: number;
+  locationName: string;
+  status: PurchaseRequisitionStatus;
+  requisitionDetailId: number;
+  itemCode: string;
+  itemName: string;
+  itemGroupName: string;
+  itemSubGroupName: string;
+  unitCode: string;
+  requiredQty: number;
+  pendingQty: number;
+  estimatedRate: number;
+  estimatedAmount: number;
 }
 
 export interface PurchaseRequisitionLineRequest {
@@ -727,6 +859,30 @@ export interface SalesReportRow {
   creditGiven: number;
   cashInvoiceCount: number;
   creditInvoiceCount: number;
+}
+
+export interface CustomerSalesRow {
+  customerId?: number | null;
+  customerName: string;
+  village?: string | null;
+  invoiceCount: number;
+  taxableAmount: number;
+  taxAmount: number;
+  totalSales: number;
+  amountReceived: number;
+  balanceAmount: number;
+}
+
+export interface SupplierPurchaseRow {
+  supplierId: number;
+  supplierName: string;
+  city?: string | null;
+  billCount: number;
+  taxableAmount: number;
+  taxAmount: number;
+  totalPurchase: number;
+  amountPaid: number;
+  balanceAmount: number;
 }
 
 export interface PurchaseReportRow {

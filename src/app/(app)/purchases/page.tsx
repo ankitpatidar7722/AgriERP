@@ -17,15 +17,14 @@ import { PageHeader } from "@/components/common/page-header";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import {
   DocumentStatusBadge,
-  PaymentStatusBadge,
   PurchaseOrderStatusBadge,
 } from "@/components/common/status-badge";
 import { DataTable, type DataColumn } from "@/components/data-table/data-table";
 import { useAuth } from "@/features/auth/auth-context";
-import { useCancelPurchase, usePurchaseOrders, usePurchases } from "@/features/transactions/hooks";
+import { useCancelPurchase, usePurchaseItems, usePurchaseOrders } from "@/features/transactions/hooks";
 import type {
   DocumentStatus,
-  PurchaseListDto,
+  PurchaseItemRow,
   PurchaseOrderDto,
   PurchaseOrderQuery,
   PurchaseQuery,
@@ -49,16 +48,18 @@ export default function PurchasesPage() {
     pageSize: 25,
     pendingOnly: true,
   });
-  const [cancelling, setCancelling] = useState<PurchaseListDto | null>(null);
+  const [cancelling, setCancelling] = useState<PurchaseItemRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
 
-  const list = usePurchases(query);
+  const list = usePurchaseItems(query);
   const pendingOrders = usePurchaseOrders(poQuery);
   const cancel = useCancelPurchase();
 
   const canReceive = can(Permissions.Purchase.Create);
 
-  const columns: DataColumn<PurchaseListDto>[] = [
+  // Item-wise: one row per GRN line. A 5-item receipt shows as 5 rows, each
+  // carrying its GRN number; editing (draft) opens the whole receipt.
+  const columns: DataColumn<PurchaseItemRow>[] = [
     {
       key: "number",
       header: t("grn.colHeader"),
@@ -72,65 +73,81 @@ export default function PurchasesPage() {
       exportValue: (row) => row.purchaseNumber,
     },
     {
-      key: "supplier",
-      header: t("pur.supplier"),
-      sortable: true,
-      cell: (row) => (
-        <div className="min-w-0 max-w-[220px]">
-          <div className="truncate">{row.supplierName}</div>
-          {row.supplierInvoiceNumber && (
-            <div className="truncate text-xs text-muted-foreground">
-              {t("grn.billWord", "bill")} {row.supplierInvoiceNumber}
-            </div>
-          )}
-        </div>
-      ),
-      exportValue: (row) => row.supplierName,
+      key: "itemCode",
+      header: t("po.itemCodeCol"),
+      cell: (row) => <span className="tabular text-muted-foreground">{row.itemCode || "-"}</span>,
+      exportValue: (row) => row.itemCode,
     },
     {
-      key: "warehouse",
-      header: t("pur.warehouse"),
+      key: "itemName",
+      header: t("po.itemNameCol"),
+      cell: (row) => <div className="max-w-[200px] truncate font-medium">{row.itemName}</div>,
+      exportValue: (row) => row.itemName,
+    },
+    {
+      key: "itemGroup",
+      header: t("po.itemGroupCol"),
       hideBelow: "lg",
-      cell: (row) => <span className="text-muted-foreground">{row.warehouseName ?? "-"}</span>,
-      exportValue: (row) => row.warehouseName ?? "",
+      cell: (row) => <span className="text-muted-foreground">{row.itemGroupName || "-"}</span>,
+      exportValue: (row) => row.itemGroupName,
+    },
+    {
+      key: "itemSubGroup",
+      header: t("po.itemSubGroupCol"),
+      hideBelow: "lg",
+      cell: (row) => <span className="text-muted-foreground">{row.itemSubGroupName || "-"}</span>,
+      exportValue: (row) => row.itemSubGroupName,
+    },
+    {
+      key: "batch",
+      header: t("grn.batchCol", "Batch"),
+      hideBelow: "lg",
+      cell: (row) =>
+        row.batchNumber ? (
+          <div>
+            <div className="tabular">{row.batchNumber}</div>
+            {row.expiryDate && (
+              <div className="text-xs text-muted-foreground">{formatDate(row.expiryDate)}</div>
+            )}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+      exportValue: (row) => row.batchNumber ?? "",
+    },
+    {
+      key: "qty",
+      header: t("pur.qty"),
+      align: "right",
+      cell: (row) => (
+        <span className="tabular">
+          {formatQuantity(row.quantity)}{" "}
+          <span className="text-xs text-muted-foreground">{row.unitCode}</span>
+        </span>
+      ),
+      exportValue: (row) => row.quantity,
+    },
+    {
+      key: "rate",
+      header: t("po.purchaseUnitRateCol"),
+      align: "right",
+      hideBelow: "md",
+      cell: (row) => <span className="tabular">{formatCurrency(row.rate)}</span>,
+      exportValue: (row) => row.rate,
     },
     {
       key: "amount",
       header: t("common.total"),
-      sortable: true,
       align: "right",
-      cell: (row) => formatCurrency(row.grandTotal),
-      exportValue: (row) => row.grandTotal,
+      cell: (row) => formatCurrency(row.lineTotal),
+      exportValue: (row) => row.lineTotal,
     },
     {
-      key: "balance",
-      header: t("grn.payable"),
-      sortable: true,
-      align: "right",
-      hideBelow: "sm",
-      cell: (row) =>
-        row.balanceAmount > 0 ? (
-          <span className="text-destructive">{formatCurrency(row.balanceAmount)}</span>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        ),
-      exportValue: (row) => row.balanceAmount,
-    },
-    {
-      key: "due",
-      header: t("grn.due"),
-      align: "right",
-      hideBelow: "lg",
-      cell: (row) => (row.dueDate ? formatDate(row.dueDate) : "-"),
-      exportValue: (row) => (row.dueDate ? formatDate(row.dueDate) : ""),
-    },
-    {
-      key: "payment",
-      header: t("grn.payment"),
-      align: "center",
+      key: "supplier",
+      header: t("pur.supplier"),
       hideBelow: "md",
-      cell: (row) => <PaymentStatusBadge status={row.paymentStatus} />,
-      exportValue: (row) => row.paymentStatus,
+      cell: (row) => <div className="max-w-[180px] truncate">{row.supplierName}</div>,
+      exportValue: (row) => row.supplierName,
     },
     {
       key: "status",
@@ -149,9 +166,9 @@ export default function PurchasesPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => router.push(`/purchases/${row.purchaseId}`)}
-            aria-label={`Open ${row.purchaseNumber}`}
-            title={t("pur.openAction")}
+            onClick={() => router.push(`/purchases/new?editId=${row.purchaseId}`)}
+            aria-label={`Edit ${row.purchaseNumber}`}
+            title={t("common.edit", "Edit")}
           >
             <Pencil className="size-4" />
           </Button>
@@ -318,8 +335,7 @@ export default function PurchasesPage() {
           isFetching={list.isFetching}
           query={query}
           onQueryChange={(next) => setQuery(next as PurchaseQuery)}
-          getRowId={(row) => row.purchaseId}
-          onRowClick={(row) => router.push(`/purchases/${row.purchaseId}`)}
+          getRowId={(row) => row.purchaseDetailId}
           searchPlaceholder={t("grn.searchGrnOrBill")}
           emptyMessage={t("grn.empty")}
           exportFileName="purchase-grn"

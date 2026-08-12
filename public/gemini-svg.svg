@@ -1,0 +1,55 @@
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <path id="topTextArc1" d="M 85,250 A 165,165 0 1,1 415,250" fill="none" />
+    <path id="bottomTextArc1" d="M 415,250 A 165,165 0 0,1 85,250" fill="none" />
+  </defs>
+
+  <!-- Outer Luxe Ring -->
+  <circle cx="250" cy="250" r="235" fill="none" stroke="#13294B" stroke-width="7" />
+  <circle cx="250" cy="250" r="218" fill="none" stroke="#F9A825" stroke-width="3" stroke-dasharray="10,6" />
+  <circle cx="250" cy="250" r="180" fill="#FAFAF7" stroke="#2E7D32" stroke-width="5" />
+
+  <!-- Center Graphic: Suryavanshi Sun + Leaf + Wheat + Dhanush -->
+  <g transform="translate(0, -5)">
+    <!-- Sun Rays Backdrop -->
+    <path d="M 175,230 A 75,75 0 0,1 325,230 Z" fill="#F9A825" opacity="0.85" />
+
+    <!-- Agricultural Field Lines -->
+    <path d="M 180,270 Q 250,220 320,270" fill="none" stroke="#2E7D32" stroke-width="2.5" />
+    <path d="M 195,285 Q 250,235 305,285" fill="none" stroke="#4CAF50" stroke-width="2" />
+
+    <!-- Left Stylized Leaf -->
+    <path d="M 245,280 C 185,270 160,210 180,165 C 215,190 235,235 245,280 Z" fill="#2E7D32" />
+
+    <!-- Right Golden Wheat Ear -->
+    <path d="M 255,280 C 315,270 340,210 320,165 C 285,190 265,235 255,280 Z" fill="#F9A825" />
+
+    <!-- Central SHREE RAM Emblem: Sacred Bow & Arrow (Dhanush) -->
+    <circle cx="250" cy="235" r="48" fill="#13294B" stroke="#F9A825" stroke-width="3" />
+    
+    <!-- Stylized Bow & Arrow (Gold) -->
+    <g stroke="#F9A825" stroke-width="3.5" fill="none" stroke-linecap="round">
+      <!-- Bow Curve -->
+      <path d="M 225,245 C 225,220 275,220 275,245" />
+      <!-- Bow String -->
+      <line x1="225" y1="245" x2="275" y2="245" stroke-width="1.5" stroke="#FFFFFF" />
+      <!-- Upward Arrow -->
+      <line x1="250" y1="255" x2="250" y2="215" stroke-width="3" stroke="#FFFFFF" />
+      <path d="M 244,223 L 250,213 L 256,223" fill="#F9A825" stroke="none" />
+    </g>
+    <text x="250" y="271" font-family="'Arial Black', sans-serif" font-size="12" fill="#F9A825" text-anchor="middle" letter-spacing="1">SHREE RAM</text>
+  </g>
+
+  <!-- Circular Typography -->
+  <text font-family="'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="25" fill="#13294B" letter-spacing="4.5">
+    <textPath href="#topTextArc1" startOffset="50%" text-anchor="middle">SHREE RAM</textPath>
+  </text>
+
+  <text font-family="'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="19" fill="#2E7D32" letter-spacing="2.5">
+    <textPath href="#bottomTextArc1" startOffset="50%" text-anchor="middle">KRISHI SEVA KENDRA</textPath>
+  </text>
+
+  <!-- Side Stars -->
+  <polygon points="102,245 105,253 113,253 107,258 109,266 102,261 95,266 97,258 91,253 99,253" fill="#F9A825" />
+  <polygon points="398,245 401,253 409,253 403,258 405,266 398,261 391,266 393,258 387,253 395,253" fill="#F9A825" />
+</svg>

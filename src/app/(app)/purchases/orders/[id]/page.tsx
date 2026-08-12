@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, PackageCheck, Pencil } from "lucide-react";
+import { ArrowLeft, PackageCheck, Pencil, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +41,10 @@ export default function PurchaseOrderDetailPage() {
             <Button variant="outline" onClick={() => router.push("/purchases/orders")}>
               <ArrowLeft className="mr-1.5 size-4" />
               {t("common.back")}
+            </Button>
+            <Button variant="outline" onClick={() => router.push(`/purchases/orders/${orderId}/print`)}>
+              <Printer className="mr-1.5 size-4" />
+              {t("common.print")}
             </Button>
             {canEdit && (
               <Button variant="outline" onClick={() => router.push(`/purchases/orders/new?editId=${orderId}`)}>

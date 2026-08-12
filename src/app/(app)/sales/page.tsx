@@ -134,7 +134,7 @@ export default function SalesPage() {
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => router.push(`/sales/${row.saleId}/print`)}
+            onClick={() => router.push(`/sales/${row.saleId}/sales-order-print`)}
             aria-label={`Print ${row.invoiceNumber}`}
             title={t("common.print")}
           >

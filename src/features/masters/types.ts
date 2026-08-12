@@ -444,6 +444,33 @@ export interface CustomerLedgerDto {
   rows: CustomerLedgerRow[];
 }
 
+export interface SupplierLedgerRow {
+  seq: number;
+  transactionDate: string;
+  voucherType: string;
+  voucherNumber?: string | null;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  narration?: string | null;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  createdByName?: string | null;
+}
+
+export interface SupplierLedgerDto {
+  supplierId: number;
+  supplierCode: string;
+  supplierName: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+  rows: SupplierLedgerRow[];
+}
+
 export interface CustomerProfileDto {
   customerId: number;
   customerCode: string;

@@ -267,3 +267,64 @@ input[type="number"] {
     color: #000;
   }
 }
+
+/*
+  KPI-card sparkline "pulse". The bright wave line draws itself on repeatedly:
+  a single long dash (>= any path length) sweeps its leading edge across to
+  trace the line, then its trailing edge wipes it off, then it repeats - so the
+  design line keeps being re-built by the pulse. A faint base line underneath
+  keeps the shape present between passes. non-scaling-stroke sizes the dash in
+  screen pixels (the SVG is stretched horizontally). This runs on the wave
+  itself - the card border stays static.
+*/
+@keyframes kpi-pulse-draw {
+  0% {
+    stroke-dashoffset: 400;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -400;
+  }
+}
+
+.spark-pulse {
+  stroke-dasharray: 400 400;
+  stroke-dashoffset: 400;
+  animation: kpi-pulse-draw 4.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No animation: just show the bright line fully drawn (static). */
+  .spark-pulse {
+    animation: none;
+    stroke-dashoffset: 0;
+    stroke-dasharray: none;
+  }
+}
+
+/*
+  A bright light that also travels around the KPI card's border. A conic-gradient
+  comet spins behind the card; the inner surface covers the centre, so only a
+  bright arc sweeping around the border ring shows (over the static ring colour).
+  The centering translate lives in the keyframe so rotation does not drop it.
+*/
+@keyframes kpi-border-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.kpi-spin {
+  animation: kpi-border-spin 4.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-spin {
+    animation: none;
+  }
+}

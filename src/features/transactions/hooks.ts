@@ -18,20 +18,27 @@ import type {
   ItemStockView,
   ProfitReportRow,
   PurchaseDto,
+  PurchaseItemRow,
   PurchaseListDto,
   PurchaseOrderDto,
+  PurchaseOrderItemRow,
+  PurchaseOrderPrintDto,
   PurchaseOrderQuery,
   PurchasePrintDto,
   PurchaseQuery,
   PurchaseReportRow,
   PurchaseRequisitionDto,
+  PurchaseRequisitionItemRow,
   PurchaseRequisitionQuery,
   SavePurchaseOrderRequest,
   SavePurchaseRequisitionRequest,
   SaleDto,
   SaleListDto,
   SaleQuery,
+  SalesOrderPrintDto,
+  CustomerSalesRow,
   SalesReportRow,
+  SupplierPurchaseRow,
   SavePaymentRequest,
   SavePurchaseRequest,
   SaveSaleRequest,
@@ -152,6 +159,15 @@ export function useInvoicePrint(id: number | null) {
   });
 }
 
+export function useSalesOrderPrint(id: number | null) {
+  return useQuery({
+    queryKey: ["sales", "order-print", id],
+    queryFn: () => apiGet<SalesOrderPrintDto>(`/sales/${id}/sales-order-print`),
+    enabled: id != null && id > 0,
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateSale() {
   const client = useQueryClient();
   return useMutation({
@@ -194,6 +210,15 @@ export function usePurchases(query: PurchaseQuery) {
   return useQuery({
     queryKey: ["purchases", "list", query],
     queryFn: () => apiGet<PagedResult<PurchaseListDto>>("/purchases", query),
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** The GRN list flattened one row per line item (item-wise view). */
+export function usePurchaseItems(query: PurchaseQuery) {
+  return useQuery({
+    queryKey: ["purchases", "items", query],
+    queryFn: () => apiGet<PagedResult<PurchaseItemRow>>("/purchases/items", query),
     placeholderData: (previous) => previous,
   });
 }
@@ -262,11 +287,29 @@ export function usePurchaseOrders(query: PurchaseOrderQuery) {
   });
 }
 
+/** The order list flattened one row per line item (item-wise view). */
+export function usePurchaseOrderItems(query: PurchaseOrderQuery) {
+  return useQuery({
+    queryKey: ["purchase-orders", "items", query],
+    queryFn: () => apiGet<PagedResult<PurchaseOrderItemRow>>("/purchases/orders/items", query),
+    placeholderData: (previous) => previous,
+  });
+}
+
 export function usePurchaseOrder(id: number | null) {
   return useQuery({
     queryKey: ["purchase-orders", "detail", id],
     queryFn: () => apiGet<PurchaseOrderDto>(`/purchases/orders/${id}`),
     enabled: id != null && id > 0,
+  });
+}
+
+export function usePurchaseOrderPrint(id: number | null) {
+  return useQuery({
+    queryKey: ["purchase-orders", "print", id],
+    queryFn: () => apiGet<PurchaseOrderPrintDto>(`/purchases/orders/${id}/print`),
+    enabled: id != null && id > 0,
+    staleTime: 60_000,
   });
 }
 
@@ -300,6 +343,15 @@ export function usePurchaseRequisitions(query: PurchaseRequisitionQuery) {
   });
 }
 
+/** The requisition list flattened one row per line item (item-wise view). */
+export function usePurchaseRequisitionItems(query: PurchaseRequisitionQuery) {
+  return useQuery({
+    queryKey: ["purchase-requisitions", "items", query],
+    queryFn: () => apiGet<PagedResult<PurchaseRequisitionItemRow>>("/purchases/requisitions/items", query),
+    placeholderData: (previous) => previous,
+  });
+}
+
 export function usePurchaseRequisition(id: number | null) {
   return useQuery({
     queryKey: ["purchase-requisitions", "detail", id],
@@ -313,6 +365,16 @@ export function useNextRequisitionNumber(enabled: boolean) {
   return useQuery({
     queryKey: ["purchase-requisitions", "next-number"],
     queryFn: () => apiGet<{ number: string | null }>("/purchases/requisitions/next-number"),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+/** Indicative next purchase-order number for the create form (does not consume the series). */
+export function useNextPurchaseOrderNumber(enabled: boolean) {
+  return useQuery({
+    queryKey: ["purchase-orders", "next-number"],
+    queryFn: () => apiGet<{ number: string | null }>("/purchases/orders/next-number"),
     enabled,
     staleTime: 0,
   });
@@ -550,6 +612,20 @@ export function useSalesReport(fromDate: string, toDate: string) {
   return useQuery({
     queryKey: ["reports", "sales", fromDate, toDate],
     queryFn: () => apiGet<SalesReportRow[]>("/reports/sales", { fromDate, toDate }),
+  });
+}
+
+export function useSalesByCustomer(fromDate: string, toDate: string) {
+  return useQuery({
+    queryKey: ["reports", "sales-by-customer", fromDate, toDate],
+    queryFn: () => apiGet<CustomerSalesRow[]>("/reports/sales-by-customer", { fromDate, toDate }),
+  });
+}
+
+export function usePurchaseBySupplier(fromDate: string, toDate: string) {
+  return useQuery({
+    queryKey: ["reports", "purchase-by-supplier", fromDate, toDate],
+    queryFn: () => apiGet<SupplierPurchaseRow[]>("/reports/purchase-by-supplier", { fromDate, toDate }),
   });
 }
 

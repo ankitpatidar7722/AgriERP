@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Ban, ClipboardList, ListChecks, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,12 +23,12 @@ import { useAuth } from "@/features/auth/auth-context";
 import {
   useCancelPurchaseRequisition,
   usePurchaseRequisition,
-  usePurchaseRequisitions,
+  usePurchaseRequisitionItems,
   useStockReport,
 } from "@/features/transactions/hooks";
 import type {
   ItemStockView,
-  PurchaseRequisitionDto,
+  PurchaseRequisitionItemRow,
   PurchaseRequisitionQuery,
   PurchaseRequisitionStatus,
 } from "@/features/transactions/types";
@@ -49,7 +48,6 @@ function suggestedQty(row: ItemStockView): number {
 
 export default function PurchaseRequisitionsPage() {
   const { can } = useAuth();
-  const router = useRouter();
   const t = useT();
 
   const [tab, setTab] = useState<Tab>("lowstock");
@@ -58,10 +56,10 @@ export default function PurchaseRequisitionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [seed, setSeed] = useState<RequisitionSeed[] | undefined>(undefined);
   const [editId, setEditId] = useState<number | null>(null);
-  const [cancelling, setCancelling] = useState<PurchaseRequisitionDto | null>(null);
+  const [cancelling, setCancelling] = useState<PurchaseRequisitionItemRow | null>(null);
 
   const lowStock = useStockReport("low");
-  const list = usePurchaseRequisitions(query);
+  const list = usePurchaseRequisitionItems(query);
   const editing = usePurchaseRequisition(editId);
   const cancel = useCancelPurchaseRequisition();
 
@@ -98,7 +96,9 @@ export default function PurchaseRequisitionsPage() {
     setModalOpen(true);
   }
 
-  const reqColumns: DataColumn<PurchaseRequisitionDto>[] = [
+  // Item-wise: one row per requisition line. A 5-item requisition shows as 5
+  // rows, each carrying its requisition number; editing opens the whole one.
+  const reqColumns: DataColumn<PurchaseRequisitionItemRow>[] = [
     {
       key: "number",
       header: t("req.colRequisition"),
@@ -112,26 +112,64 @@ export default function PurchaseRequisitionsPage() {
       exportValue: (row) => row.requisitionNumber,
     },
     {
-      key: "items",
-      header: t("req.itemsCol"),
-      cell: (row) => {
-        const names = row.itemNames ?? [];
-        if (names.length === 0) return <span className="text-muted-foreground">-</span>;
-        const text = names.join(", ");
-        return (
-          <span className="block max-w-[340px] truncate" title={text}>
-            {text}
-          </span>
-        );
-      },
-      exportValue: (row) => (row.itemNames ?? []).join(", "),
+      key: "itemCode",
+      header: t("po.itemCodeCol"),
+      cell: (row) => <span className="tabular text-muted-foreground">{row.itemCode || "-"}</span>,
+      exportValue: (row) => row.itemCode,
     },
     {
-      key: "qty",
-      header: t("req.totalQtyCol"),
+      key: "itemName",
+      header: t("po.itemNameCol"),
+      cell: (row) => <div className="max-w-[220px] truncate font-medium">{row.itemName}</div>,
+      exportValue: (row) => row.itemName,
+    },
+    {
+      key: "itemGroup",
+      header: t("po.itemGroupCol"),
+      hideBelow: "lg",
+      cell: (row) => <span className="text-muted-foreground">{row.itemGroupName || "-"}</span>,
+      exportValue: (row) => row.itemGroupName,
+    },
+    {
+      key: "itemSubGroup",
+      header: t("po.itemSubGroupCol"),
+      hideBelow: "lg",
+      cell: (row) => <span className="text-muted-foreground">{row.itemSubGroupName || "-"}</span>,
+      exportValue: (row) => row.itemSubGroupName,
+    },
+    {
+      key: "requiredQty",
+      header: t("po.requiredQtyCol", "Required Qty"),
       align: "right",
-      cell: (row) => <span className="tabular">{formatQuantity(row.totalQty)}</span>,
-      exportValue: (row) => row.totalQty,
+      cell: (row) => (
+        <span className="tabular">
+          {formatQuantity(row.requiredQty)}{" "}
+          <span className="text-xs text-muted-foreground">{row.unitCode}</span>
+        </span>
+      ),
+      exportValue: (row) => row.requiredQty,
+    },
+    {
+      key: "estRate",
+      header: t("req.estRate", "Est. Rate"),
+      align: "right",
+      hideBelow: "md",
+      cell: (row) => <span className="tabular">{formatCurrency(row.estimatedRate)}</span>,
+      exportValue: (row) => row.estimatedRate,
+    },
+    {
+      key: "amount",
+      header: t("po.totalAmountCol"),
+      align: "right",
+      cell: (row) => formatCurrency(row.estimatedAmount),
+      exportValue: (row) => row.estimatedAmount,
+    },
+    {
+      key: "location",
+      header: t("req.location", "Location"),
+      hideBelow: "md",
+      cell: (row) => <span className="text-muted-foreground">{row.locationName}</span>,
+      exportValue: (row) => row.locationName,
     },
     {
       key: "status",
@@ -146,7 +184,7 @@ export default function PurchaseRequisitionsPage() {
       align: "right",
       cell: (row) => (
         <div className="flex justify-end gap-0.5">
-          {row.status === "Open" && canCreate && (
+          {canCreate && (
             <Button
               variant="ghost"
               size="icon"
@@ -293,8 +331,7 @@ export default function PurchaseRequisitionsPage() {
           isFetching={list.isFetching}
           query={query}
           onQueryChange={(next) => setQuery(next as PurchaseRequisitionQuery)}
-          getRowId={(row) => row.requisitionId}
-          onRowClick={(row) => router.push(`/purchases/requisitions/${row.requisitionId}`)}
+          getRowId={(row) => row.requisitionDetailId}
           searchPlaceholder={t("req.searchPlaceholder")}
           emptyMessage={t("req.empty")}
           exportFileName="purchase-requisitions"

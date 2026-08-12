@@ -20,6 +20,7 @@ import { useAuth } from "@/features/auth/auth-context";
 import { useLang } from "@/features/i18n/provider";
 import { LANGUAGES } from "@/features/i18n/config";
 import { useSidebarModules } from "@/features/navigation/hooks";
+import { useCurrentShop } from "@/features/masters/hooks";
 import { brand } from "./nav-config";
 import { SidebarNav } from "./sidebar";
 import { ThemeToggle } from "./theme-toggle";
@@ -40,6 +41,10 @@ export function Navbar() {
   // Same source as the sidebar, and already in the cache by the time this runs
   // - the label must never name a screen the menu beside it does not offer.
   const { data: sections = [] } = useSidebarModules();
+  // The header identity comes from ShopMaster (the shop's own name), not a
+  // build-time constant; it falls back to the brand while it loads or if unset.
+  const { data: shop } = useCurrentShop();
+  const shopName = shop?.shopName?.trim() || undefined;
 
   const initials =
     user?.fullName
@@ -50,13 +55,16 @@ export function Navbar() {
       .join("") ?? "?";
 
   // Names the section the viewer is in, read from the nav they can see. Purely
-  // a label - it does not decide routing and it never links anywhere.
+  // a label - it does not decide routing and it never links anywhere. Longest
+  // match wins, so /purchases/orders reads "Purchase Order", not the "/purchases"
+  // GRN whose route is merely a prefix of it.
   const currentPage = sections
     .flatMap((section) => section.modules)
-    .find(
+    .filter(
       (module) =>
         pathname === module.moduleName || pathname.startsWith(`${module.moduleName}/`),
-    )?.moduleDisplayName;
+    )
+    .sort((a, b) => b.moduleName.length - a.moduleName.length)[0]?.moduleDisplayName;
 
   return (
     <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 bg-sidebar px-3 text-sidebar-foreground lg:px-6">
@@ -86,8 +94,8 @@ export function Navbar() {
         </span>
 
         <span className="truncate text-[15px] font-semibold text-white">
-          <span className="hidden sm:inline">{brand.name}</span>
-          <span className="sm:hidden">{brand.shortName}</span>
+          <span className="hidden sm:inline">{shopName ?? brand.name}</span>
+          <span className="sm:hidden">{shopName ?? brand.shortName}</span>
         </span>
 
         {currentPage && (

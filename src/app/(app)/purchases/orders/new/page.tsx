@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
+import { Loader2, Plus, RefreshCw, RotateCcw, Save, Trash2, UserPlus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/common/page-header";
 import { Field } from "@/components/common/form-dialog";
 import { SearchPicker, type SearchPickerOption } from "@/components/common/search-picker";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -17,9 +16,9 @@ import { supplierHooks } from "@/features/masters/hooks";
 import {
   useCreatePurchaseOrder,
   useItemSearch,
+  useNextPurchaseOrderNumber,
   usePurchaseOrder,
   usePurchaseRequisition,
-  usePurchaseRequisitions,
   useUpdatePurchaseOrder,
 } from "@/features/transactions/hooks";
 import { round2 } from "@/features/transactions/billing-math";
@@ -31,7 +30,7 @@ import type {
 } from "@/features/transactions/types";
 import type { ItemListDto } from "@/features/masters/types";
 import { ItemMasterPicker } from "@/features/transactions/item-master-picker";
-import { formatCurrency, toIsoDate } from "@/lib/format";
+import { formatCurrency, formatQuantity, toIsoDate } from "@/lib/format";
 import { useT } from "@/features/i18n/provider";
 
 /**
@@ -43,11 +42,36 @@ import { useT } from "@/features/i18n/provider";
 interface OrderLine {
   key: string;
   item: ItemLookupDto;
+  /** From the requisition line this was raised from; null for a direct add. */
+  requiredQty: number | null;
+  noOfPacks: number;
+  qtyPerPack: number;
+  /** P.O. Qty (In PU) = noOfPacks x qtyPerPack. */
   orderedQty: number;
+  /** Purchase Unit Rate. */
   rate: number;
+  itemRemark: string;
+  lineRemark: string;
   /** Set when this line was pulled from a requisition. */
   requisitionDetailId?: number | null;
 }
+
+/** P.O. Qty = packs x qty-per-pack, rounded to the 0.001 the field allows. */
+function packQty(packs: number, qtyPerPack: number): number {
+  return Math.round(packs * qtyPerPack * 1000) / 1000;
+}
+
+// Highlighted grid cells (matches the reference PO screen): editable number
+// inputs get a teal border, the derived P.O. Qty box a blue one. cn/twMerge in
+// Input lets these override the default border-input colour.
+const GRID_EDIT =
+  "h-8 rounded-md border-teal-400 bg-teal-50/40 text-right tabular " +
+  "focus-visible:border-teal-500 focus-visible:ring-teal-400/40 " +
+  "dark:border-teal-500/60 dark:bg-teal-500/10";
+const GRID_DERIVED =
+  "flex h-8 items-center justify-end rounded-md border border-blue-400 bg-blue-50/50 " +
+  "px-3 text-right tabular font-medium text-blue-700 " +
+  "dark:border-blue-500/60 dark:bg-blue-500/10 dark:text-blue-300";
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
@@ -66,8 +90,6 @@ export default function NewPurchaseOrderPage() {
   // which requisition's lines are already loaded so the effect applies each once.
   const [reqId, setReqId] = useState<number | null>(null);
   const [appliedReqId, setAppliedReqId] = useState<number | null>(null);
-  const [reqNumber, setReqNumber] = useState<string | null>(null);
-  const [reqSearch, setReqSearch] = useState("");
 
   // Edit mode: `?editId=` loads an existing OPEN order into the same form.
   const [editId, setEditId] = useState<number | null>(null);
@@ -80,14 +102,14 @@ export default function NewPurchaseOrderPage() {
   const items = useItemSearch(debouncedItem);
   const suppliers = supplierHooks.useLookup();
   const queryClient = useQueryClient();
-  const openReqs = usePurchaseRequisitions({ page: 1, pageSize: 50, pendingOnly: true });
   const reqDetail = usePurchaseRequisition(reqId);
   const orderDetail = usePurchaseOrder(editId);
+  // Indicative next PO number for a new order (read-only; the real one is
+  // assigned atomically on save, so this is a likely-next preview).
+  const nextOrderNumber = useNextPurchaseOrderNumber(!isEdit);
   const createOrder = useCreatePurchaseOrder();
   const updateOrder = useUpdatePurchaseOrder();
   const createSupplier = supplierHooks.useCreate();
-
-  const fromReq = reqId != null;
 
   // Deep-links: ?editId= opens an existing order for edit; ?reqId= starts a new
   // order pre-filled from a requisition. Edit wins if both are somehow present.
@@ -105,11 +127,13 @@ export default function NewPurchaseOrderPage() {
   function orderLineToLookup(l: PurchaseOrderLineDto): ItemLookupDto {
     return {
       id: l.itemId,
-      code: "",
+      code: l.itemCode,
       name: l.itemName,
       shortName: null,
       description: null,
       barcode: null,
+      itemGroupName: l.itemGroupName,
+      itemSubGroupName: l.itemSubGroupName,
       unitId: l.unitId,
       unitCode: l.unitCode,
       sellingRate: l.sellingRate,
@@ -129,15 +153,8 @@ export default function NewPurchaseOrderPage() {
     const order = orderDetail.data;
     if (!order || order.purchaseOrderId === appliedEditId) return;
 
-    // Only an untouched order can be edited; the backend enforces this too.
-    if (order.status !== "Open") {
-      toast.error(
-        `${t("po.orderWord", "Order")} ${order.orderNumber} ${t("pur.isWord", "is")} ${t(`pur.status.${order.status.toLowerCase()}`, order.status)} ${t("pur.cannotEditSuffix", "and can no longer be edited.")}`,
-      );
-      router.replace(`/purchases/orders/${order.purchaseOrderId}`);
-      return;
-    }
-
+    // Any order opens in the form; a non-Open order (a GRN has drawn on it) is
+    // blocked at save with a clear message rather than being un-openable here.
     setOrderDate(order.orderDate.slice(0, 10));
     setExpectedDate(order.expectedDate ? order.expectedDate.slice(0, 10) : "");
     setSupplierId(order.supplierId);
@@ -147,24 +164,30 @@ export default function NewPurchaseOrderPage() {
       order.lines.map((l) => ({
         key: `po-${l.purchaseOrderDetailId}`,
         item: orderLineToLookup(l),
+        requiredQty: l.requiredQty ?? null,
+        // Older lines saved no split; show them as N packs of 1 so P.O. Qty holds.
+        noOfPacks: l.noOfPacks > 0 ? l.noOfPacks : l.orderedQty,
+        qtyPerPack: l.qtyPerPack > 0 ? l.qtyPerPack : 1,
         orderedQty: l.orderedQty,
         rate: l.rate,
+        itemRemark: l.itemRemark ?? "",
+        lineRemark: l.remarks ?? "",
         requisitionDetailId: l.requisitionDetailId ?? null,
       })),
     );
     setAppliedEditId(order.purchaseOrderId);
-    // t is a stable translate function; re-adding it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderDetail.data, appliedEditId, router]);
+  }, [orderDetail.data, appliedEditId]);
 
   function reqLineToLookup(l: PurchaseRequisitionLineDto): ItemLookupDto {
     return {
       id: l.itemId,
-      code: "",
+      code: l.itemCode,
       name: l.itemName,
       shortName: null,
       description: null,
       barcode: null,
+      itemGroupName: l.itemGroupName,
+      itemSubGroupName: l.itemSubGroupName,
       unitId: l.unitId,
       unitCode: l.unitCode,
       sellingRate: l.sellingRate,
@@ -180,16 +203,21 @@ export default function NewPurchaseOrderPage() {
   }
 
   function applyRequisition(req: PurchaseRequisitionDto) {
-    setReqNumber(req.requisitionNumber);
     setLines(
       req.lines
         .filter((l) => l.pendingQty > 0)
         .map((l) => ({
           key: `req-${l.requisitionDetailId}`,
           item: reqLineToLookup(l),
-          // Order defaults to what is still pending on the requisition line.
+          // Required Qty is the figure the requisition asked for.
+          requiredQty: l.requiredQty,
+          // P.O. Qty defaults to what is still pending, as one pack each.
+          noOfPacks: l.pendingQty,
+          qtyPerPack: 1,
           orderedQty: l.pendingQty,
           rate: l.estimatedRate,
+          itemRemark: "",
+          lineRemark: l.remarks ?? "",
           requisitionDetailId: l.requisitionDetailId,
         })),
     );
@@ -208,8 +236,6 @@ export default function NewPurchaseOrderPage() {
   function clearRequisition() {
     setReqId(null);
     setAppliedReqId(null);
-    setReqNumber(null);
-    setReqSearch("");
     setLines([]);
   }
 
@@ -228,10 +254,16 @@ export default function NewPurchaseOrderPage() {
       {
         key: `${item.id}-${Date.now()}`,
         item,
+        // A direct add has no requisition behind it, so no Required Qty.
+        requiredQty: null,
+        noOfPacks: 1,
+        qtyPerPack: 1,
         orderedQty: 1,
         // Seeded from the master; corrected here. A search hit carries no
         // purchase rate, so fall back to an estimate off the selling rate.
         rate: rate ?? (item.sellingRate > 0 ? round2(item.sellingRate * 0.8) : 0),
+        itemRemark: "",
+        lineRemark: "",
       },
     ]);
     setItemSearch("");
@@ -246,6 +278,8 @@ export default function NewPurchaseOrderPage() {
       shortName: row.shortName,
       description: row.technicalName,
       barcode: row.barcode,
+      itemGroupName: row.itemGroupName,
+      itemSubGroupName: row.itemSubGroupName,
       unitId: row.unitId,
       unitCode: row.unitCode,
       sellingRate: row.sellingRate,
@@ -270,11 +304,43 @@ export default function NewPurchaseOrderPage() {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   }
 
+  /** Edit packs or qty-per-pack and re-derive P.O. Qty (In PU) from the two. */
+  function updatePack(key: string, patch: Partial<Pick<OrderLine, "noOfPacks" | "qtyPerPack">>) {
+    setLines((current) =>
+      current.map((line) => {
+        if (line.key !== key) return line;
+        const next = { ...line, ...patch };
+        next.orderedQty = packQty(next.noOfPacks, next.qtyPerPack);
+        return next;
+      }),
+    );
+  }
+
   function removeLine(key: string) {
     setLines((current) => current.filter((line) => line.key !== key));
   }
 
+  /** Close the full-screen frame: back to the order (edit) or the list (new). */
+  function close() {
+    router.push(isEdit ? `/purchases/orders/${editId}` : "/purchases/orders");
+  }
+
+  /** Reset the whole form to an empty order (keeps today's date). */
+  function clearAll() {
+    setLines([]);
+    setSupplierId(null);
+    setSupplierSearch("");
+    setRemark("");
+    setItemSearch("");
+    clearRequisition();
+  }
+
   async function save() {
+    // A booked order can no longer be edited once a GRN has drawn on it.
+    if (isEdit && orderDetail.data && orderDetail.data.status !== "Open") {
+      toast.error(t("pur.alreadyTransacted"));
+      return;
+    }
     if (lines.length === 0) {
       toast.error(t("po.addAtLeastOneItem"));
       return;
@@ -319,6 +385,11 @@ export default function NewPurchaseOrderPage() {
         orderedQty: line.orderedQty,
         unitId: line.item.unitId,
         rate: line.rate,
+        noOfPacks: line.noOfPacks,
+        qtyPerPack: line.qtyPerPack,
+        requiredQty: line.requiredQty,
+        remarks: line.lineRemark || null,
+        itemRemark: line.itemRemark || null,
         requisitionDetailId: line.requisitionDetailId ?? null,
       })),
     };
@@ -357,65 +428,34 @@ export default function NewPurchaseOrderPage() {
       trailing: supplier.code,
     }));
 
-  const reqOptions: SearchPickerOption[] = (openReqs.data?.items ?? [])
-    .filter((r) => r.requisitionNumber.toLowerCase().includes(reqSearch.toLowerCase()))
-    .slice(0, 30)
-    .map((r) => ({
-      id: r.requisitionId,
-      primary: r.requisitionNumber,
-      secondary: r.status,
-      trailing: `Qty ${round2(r.totalQty)}`,
-    }));
-
   return (
-    <>
-      <PageHeader
-        title={isEdit ? t("po.editTitle") : t("po.createTitle")}
-        description={t("po.newDesc")}
-      />
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* frame header with a close button, like the reference PO screen */}
+      <div className="flex items-center justify-between border-b bg-card px-5 py-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {isEdit ? t("po.editTitle") : t("po.createTitle")}
+        </h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={close}
+          aria-label={t("common.close", "Close")}
+          title={t("common.close", "Close")}
+        >
+          <X className="size-5" />
+        </Button>
+      </div>
 
-      <div className="space-y-4">
+      {/* scrollable body */}
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* --------------------------- header strip --------------------------- */}
         <Card>
           <CardContent className="grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Requisition source is fixed once an order exists; hidden while editing. */}
-            {!isEdit && (
-              <Field
-                label={t("po.fromRequisition")}
-                hint={fromReq ? t("po.orderingAgainstReq") : t("po.optionalOrDirect")}
-              >
-                {fromReq ? (
-                  <div className="flex h-10 items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 text-sm">
-                    <span className="truncate font-medium">{reqNumber ?? t("common.loading")}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0"
-                      onClick={clearRequisition}
-                      aria-label="Clear requisition"
-                      title={t("common.clear")}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <SearchPicker
-                    value={reqSearch}
-                    onValueChange={setReqSearch}
-                    options={reqOptions}
-                    isLoading={openReqs.isFetching}
-                    openOnFocus
-                    placeholder={t("po.searchOpenReq")}
-                    emptyMessage={t("po.noOpenReqs")}
-                    onSelect={(option) => setReqId(option.id)}
-                  />
-                )}
-              </Field>
-            )}
-
             <Field label={t("po.orderNo")}>
-              <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm text-muted-foreground">
-                {isEdit ? orderDetail.data?.orderNumber ?? t("common.loading") : t("po.autoOnSave")}
+              <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm font-medium">
+                {isEdit
+                  ? orderDetail.data?.orderNumber ?? t("common.loading")
+                  : nextOrderNumber.data?.number ?? t("po.autoOnSave")}
               </div>
             </Field>
 
@@ -429,6 +469,7 @@ export default function NewPurchaseOrderPage() {
             </Field>
 
             <Field
+              className="lg:col-span-2"
               label={t("pur.supplierName")}
               required
               hint={supplierId ? t("pur.savedSupplierSelected") : t("pur.typeOrPickHint")}
@@ -480,15 +521,6 @@ export default function NewPurchaseOrderPage() {
                 </Button>
               </div>
             </Field>
-
-            <Field label={t("po.expectedDate")} htmlFor="expectedDate" hint={t("po.expectedDateHint")}>
-              <Input
-                id="expectedDate"
-                type="date"
-                value={expectedDate}
-                onChange={(event) => setExpectedDate(event.target.value)}
-              />
-            </Field>
           </CardContent>
         </Card>
 
@@ -526,10 +558,19 @@ export default function NewPurchaseOrderPage() {
                   <thead className="bg-muted text-xs text-muted-foreground">
                     <tr>
                       <th className="w-8 px-2 py-2 text-right font-medium">#</th>
-                      <th className="min-w-[220px] px-3 py-2 text-left font-medium">{t("pur.item")}</th>
-                      <th className="w-32 px-2 py-2 text-right font-medium">{t("po.orderedQtyCol")}</th>
-                      <th className="w-32 px-2 py-2 text-right font-medium">{t("pur.rate")}</th>
-                      <th className="w-32 px-3 py-2 text-right font-medium">{t("common.amount")}</th>
+                      <th className="w-24 px-2 py-2 text-left font-medium">{t("po.itemCodeCol")}</th>
+                      <th className="min-w-[120px] px-2 py-2 text-left font-medium">{t("po.itemGroupCol")}</th>
+                      <th className="min-w-[130px] px-2 py-2 text-left font-medium">{t("po.itemSubGroupCol")}</th>
+                      <th className="min-w-[200px] px-3 py-2 text-left font-medium">{t("po.itemNameCol")}</th>
+                      <th className="w-24 px-2 py-2 text-right font-medium">{t("po.requiredQtyCol")}</th>
+                      <th className="w-20 px-2 py-2 text-left font-medium">{t("po.stockUnitCol")}</th>
+                      <th className="w-24 px-2 py-2 text-right font-medium">{t("po.noOfPacksCol")}</th>
+                      <th className="w-24 px-2 py-2 text-right font-medium">{t("po.qtyPerPackCol")}</th>
+                      <th className="w-28 px-2 py-2 text-right font-medium">{t("po.poQtyInPuCol")}</th>
+                      <th className="w-28 px-2 py-2 text-right font-medium">{t("po.purchaseUnitRateCol")}</th>
+                      <th className="w-28 px-3 py-2 text-right font-medium">{t("po.totalAmountCol")}</th>
+                      <th className="min-w-[140px] px-2 py-2 text-left font-medium">{t("po.itemRemarkCol")}</th>
+                      <th className="min-w-[140px] px-2 py-2 text-left font-medium">{t("po.remarkCol")}</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
@@ -539,24 +580,56 @@ export default function NewPurchaseOrderPage() {
                         <td className="px-2 py-2 text-right tabular text-muted-foreground">
                           {index + 1}
                         </td>
+                        <td className="px-2 py-2 text-muted-foreground">
+                          {line.item.code || "-"}
+                        </td>
+                        <td className="px-2 py-2">
+                          <span className="block max-w-[160px] truncate" title={line.item.itemGroupName ?? ""}>
+                            {line.item.itemGroupName || "-"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2">
+                          <span className="block max-w-[170px] truncate" title={line.item.itemSubGroupName ?? ""}>
+                            {line.item.itemSubGroupName || "-"}
+                          </span>
+                        </td>
                         <td className="px-3 py-2">
-                          <div className="min-w-[200px] truncate font-medium">{line.item.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {line.item.code} · {line.item.unitCode}
-                          </div>
+                          <div className="min-w-[180px] truncate font-medium">{line.item.name}</div>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular text-muted-foreground">
+                          {line.requiredQty != null ? formatQuantity(line.requiredQty) : "-"}
+                        </td>
+                        <td className="px-2 py-2 text-muted-foreground">{line.item.unitCode}</td>
+                        <td className="px-2 py-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="1"
+                            value={line.noOfPacks}
+                            onChange={(e) => updatePack(line.key, { noOfPacks: Number(e.target.value) })}
+                            className={GRID_EDIT}
+                            aria-label={`Number of packs for ${line.item.name}`}
+                          />
                         </td>
                         <td className="px-2 py-2">
                           <Input
                             type="number"
                             min={0}
                             step="0.001"
-                            value={line.orderedQty}
-                            onChange={(e) =>
-                              updateLine(line.key, { orderedQty: Number(e.target.value) })
-                            }
-                            className="h-8 text-right tabular"
-                            aria-label={`Ordered quantity for ${line.item.name}`}
+                            value={line.qtyPerPack}
+                            onChange={(e) => updatePack(line.key, { qtyPerPack: Number(e.target.value) })}
+                            className={GRID_EDIT}
+                            aria-label={`Quantity per pack for ${line.item.name}`}
                           />
+                        </td>
+                        <td className="px-2 py-2">
+                          {/* Derived: packs x qty-per-pack. Read-only so the two inputs stay the source. */}
+                          <div
+                            className={GRID_DERIVED}
+                            aria-label={`P.O. quantity for ${line.item.name}`}
+                          >
+                            {formatQuantity(line.orderedQty)}
+                          </div>
                         </td>
                         <td className="px-2 py-2">
                           <Input
@@ -565,12 +638,30 @@ export default function NewPurchaseOrderPage() {
                             step="0.01"
                             value={line.rate}
                             onChange={(e) => updateLine(line.key, { rate: Number(e.target.value) })}
-                            className="h-8 text-right tabular"
-                            aria-label={`Rate for ${line.item.name}`}
+                            className={GRID_EDIT}
+                            aria-label={`Purchase unit rate for ${line.item.name}`}
                           />
                         </td>
                         <td className="px-3 py-2 text-right tabular font-medium">
                           {formatCurrency(round2(line.orderedQty * line.rate))}
+                        </td>
+                        <td className="px-2 py-2">
+                          <Input
+                            value={line.itemRemark}
+                            onChange={(e) => updateLine(line.key, { itemRemark: e.target.value })}
+                            className="h-8"
+                            placeholder={t("common.optional")}
+                            aria-label={`Item remark for ${line.item.name}`}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <Input
+                            value={line.lineRemark}
+                            onChange={(e) => updateLine(line.key, { lineRemark: e.target.value })}
+                            className="h-8"
+                            placeholder={t("common.optional")}
+                            aria-label={`Remark for ${line.item.name}`}
+                          />
                         </td>
                         <td className="px-1 py-2">
                           <Button
@@ -628,23 +719,24 @@ export default function NewPurchaseOrderPage() {
         </Card>
       </div>
 
-      {/* --------------------------- sticky action bar --------------------------- */}
-      <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7">
+      {/* --------------------------- action footer --------------------------- */}
+      <div className="flex items-center justify-between gap-3 border-t bg-card px-5 py-3">
         <div className="hidden text-sm text-muted-foreground sm:block">
           {lines.length} {lines.length === 1 ? t("pur.itemLower", "item") : t("pur.itemsLower", "items")} ·{" "}
           {t("po.estimatedLabel", "Estimated")}{" "}
           <span className="font-medium text-foreground">{formatCurrency(estimatedValue)}</span>
         </div>
         <div className="flex flex-1 justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => router.push(isEdit ? `/purchases/orders/${editId}` : "/purchases/orders")}
-            disabled={isBusy}
-          >
+          <Button variant="outline" onClick={clearAll} disabled={isBusy}>
+            <RotateCcw className="mr-1.5 size-4" />
+            {t("common.clear", "Clear")}
+          </Button>
+          <Button variant="outline" onClick={close} disabled={isBusy}>
+            <X className="mr-1.5 size-4" />
             {t("common.cancel")}
           </Button>
           <Button variant="success" onClick={() => void save()} disabled={isBusy}>
-            {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />}
             {isEdit ? t("common.saveChanges") : t("po.createOrder")}
           </Button>
         </div>
@@ -656,6 +748,6 @@ export default function NewPurchaseOrderPage() {
         addedIds={lines.map((line) => line.item.id)}
         onConfirm={addFromPicker}
       />
-    </>
+    </div>
   );
 }

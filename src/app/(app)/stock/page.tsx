@@ -16,7 +16,7 @@ import {
 import { PageHeader } from "@/components/common/page-header";
 import { DocumentStatusBadge, ExpiryBadge } from "@/components/common/status-badge";
 import { Field, FieldGrid, FormDialog } from "@/components/common/form-dialog";
-import { SearchPicker, type SearchPickerOption } from "@/components/common/search-picker";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type DataColumn } from "@/components/data-table/data-table";
 import { useAuth } from "@/features/auth/auth-context";
 import {
@@ -43,6 +43,7 @@ import { itemHooks } from "@/features/masters/hooks";
 import type { ItemListDto } from "@/features/masters/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatCurrency, formatDate, formatDateTime, formatQuantity, toIsoDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Permissions } from "@/lib/permissions";
 import { useT } from "@/features/i18n/provider";
 import { VerificationTab } from "./verification-tab";
@@ -683,17 +684,38 @@ function TransfersTab({ canTransfer, canPost }: { canTransfer: boolean; canPost:
   const create = useCreateTransfer();
   const post = usePostTransfer();
 
-  const batchOptions: SearchPickerOption[] = (fromBatches.data ?? [])
-    .filter((batch) =>
-      `${batch.itemName} ${batch.batchNumber}`.toLowerCase().includes(batchSearch.toLowerCase()),
-    )
-    .slice(0, 30)
-    .map((batch) => ({
-      id: batch.batchId,
-      primary: batch.itemName,
-      secondary: batch.batchNumber,
-      trailing: `${formatQuantity(batch.currentQty)} ${batch.unitCode}`,
-    }));
+  // Every batch at the source location, filtered by the search box. The grid
+  // below lists them batch-wise with a checkbox each, so many can be picked at
+  // once instead of one search-and-click at a time.
+  const filteredBatches = (fromBatches.data ?? []).filter((batch) =>
+    `${batch.itemName} ${batch.batchNumber}`.toLowerCase().includes(batchSearch.toLowerCase()),
+  );
+  const allFilteredSelected =
+    filteredBatches.length > 0 &&
+    filteredBatches.every((b) => lines.some((l) => l.batch.batchId === b.batchId));
+
+  function toggleBatch(batch: BatchStockView) {
+    setLines((current) =>
+      current.some((l) => l.batch.batchId === batch.batchId)
+        ? current.filter((l) => l.batch.batchId !== batch.batchId)
+        : [...current, { key: String(batch.batchId), batch, quantity: batch.currentQty }],
+    );
+  }
+
+  function toggleAllFiltered() {
+    if (allFilteredSelected) {
+      const ids = new Set(filteredBatches.map((b) => b.batchId));
+      setLines((current) => current.filter((l) => !ids.has(l.batch.batchId)));
+    } else {
+      setLines((current) => {
+        const have = new Set(current.map((l) => l.batch.batchId));
+        const additions = filteredBatches
+          .filter((b) => !have.has(b.batchId))
+          .map((b) => ({ key: String(b.batchId), batch: b, quantity: b.currentQty }));
+        return [...current, ...additions];
+      });
+    }
+  }
 
   const columns: DataColumn<StockTransferDto>[] = [
     {
@@ -871,23 +893,93 @@ function TransfersTab({ canTransfer, canPost }: { canTransfer: boolean; canPost:
           </Field>
         </FieldGrid>
 
-        <Field label={t("stock.addBatch")} hint={fromLocationId ? undefined : t("stock.pickSourceFirst")}>
-          <SearchPicker
-            value={batchSearch}
-            onValueChange={setBatchSearch}
-            options={fromLocationId ? batchOptions : []}
-            placeholder={t("stock.searchItemOrBatch")}
-            emptyMessage={fromLocationId ? t("stock.noBatchFound") : t("stock.pickSourceFirst")}
-            onSelect={(option) => {
-              const batch = fromBatches.data?.find((b) => b.batchId === option.id);
-              if (!batch || lines.some((l) => l.batch.batchId === batch.batchId)) return;
-              setLines((current) => [
-                ...current,
-                { key: String(batch.batchId), batch, quantity: batch.currentQty },
-              ]);
-              setBatchSearch("");
-            }}
-          />
+        <Field
+          label={t("stock.addBatch")}
+          hint={fromLocationId ? t("stock.tickBatchesHint") : t("stock.pickSourceFirst")}
+        >
+          {!fromLocationId ? (
+            <div className="flex h-24 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+              {t("stock.pickSourceFirst")}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Input
+                value={batchSearch}
+                onChange={(e) => setBatchSearch(e.target.value)}
+                placeholder={t("stock.searchItemOrBatch")}
+                className="h-9"
+              />
+              <div className="max-h-64 overflow-y-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground">
+                    <tr>
+                      <th className="w-10 px-2 py-2">
+                        <Checkbox
+                          checked={allFilteredSelected}
+                          onCheckedChange={() => toggleAllFiltered()}
+                          aria-label={t("stock.selectAllBatches")}
+                        />
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium">{t("stock.item")}</th>
+                      <th className="px-2 py-2 text-left font-medium">{t("stock.batch")}</th>
+                      <th className="px-2 py-2 text-left font-medium">{t("stock.expiry")}</th>
+                      <th className="px-2 py-2 text-right font-medium">{t("stock.onHand")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBatches.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                          {t("stock.noBatchFound")}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredBatches.map((batch) => {
+                        const selected = lines.some((l) => l.batch.batchId === batch.batchId);
+                        return (
+                          <tr
+                            key={batch.batchId}
+                            className={cn(
+                              "cursor-pointer border-t hover:bg-muted/50",
+                              selected && "bg-primary/5",
+                            )}
+                            onClick={() => toggleBatch(batch)}
+                          >
+                            <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selected}
+                                onCheckedChange={() => toggleBatch(batch)}
+                                aria-label={`${batch.itemName} ${batch.batchNumber}`}
+                              />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <div className="max-w-[220px] truncate">{batch.itemName}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {batch.itemSubGroupName}
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-2 py-1.5">{batch.batchNumber}</td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-xs">
+                              {batch.expiryDate ? formatDate(batch.expiryDate) : "-"}
+                            </td>
+                            <td className="whitespace-nowrap px-2 py-1.5 text-right tabular">
+                              {formatQuantity(batch.currentQty)}{" "}
+                              <span className="text-xs text-muted-foreground">{batch.unitCode}</span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {lines.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {lines.length} {t("stock.batchesSelected")}
+                </p>
+              )}
+            </div>
+          )}
         </Field>
 
         {lines.length > 0 && (

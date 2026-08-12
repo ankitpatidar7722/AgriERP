@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Ban, CheckCircle2, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, FileText, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,10 +63,17 @@ export default function SaleDetailPage() {
               </Button>
             )}
 
-            {isPosted && can(Permissions.Sales.Print) && (
-              <Button variant="outline" onClick={() => router.push(`/sales/${saleId}/print`)}>
+            {data.status !== "Cancelled" && can(Permissions.Sales.Print) && (
+              <Button onClick={() => router.push(`/sales/${saleId}/sales-order-print`)}>
                 <Printer className="mr-1.5 size-4" />
                 {t("common.print")}
+              </Button>
+            )}
+
+            {isPosted && can(Permissions.Sales.Print) && (
+              <Button variant="outline" onClick={() => router.push(`/sales/${saleId}/print`)}>
+                <FileText className="mr-1.5 size-4" />
+                {t("sale.taxInvoiceDoc")}
               </Button>
             )}
 

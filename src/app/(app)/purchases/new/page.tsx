@@ -234,15 +234,8 @@ export default function NewGrnPage() {
     const data = purchaseDetail.data;
     if (!data || data.purchaseId === appliedEditId) return;
 
-    // Only a draft can be re-worked; once posted the stock has moved.
-    if (data.status !== "Draft") {
-      toast.error(
-        `${t("grn.entityWord", "GRN")} ${data.purchaseNumber} ${t("pur.isWord", "is")} ${t(`pur.status.${data.status.toLowerCase()}`, data.status)} ${t("pur.cannotEditSuffix", "and can no longer be edited.")}`,
-      );
-      router.replace(`/purchases/${data.purchaseId}`);
-      return;
-    }
-
+    // Any GRN opens in the form; a non-Draft (posted) one — its stock has
+    // already moved — is blocked at save with a clear message instead.
     setPurchaseDate(data.purchaseDate.slice(0, 10));
     setSupplierId(data.supplierId);
     setSupplierSearch(data.supplierName);
@@ -263,9 +256,7 @@ export default function NewGrnPage() {
     }
 
     setAppliedEditId(data.purchaseId);
-    // t is a stable translate function; re-adding it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purchaseDetail.data, appliedEditId, router]);
+  }, [purchaseDetail.data, appliedEditId]);
 
   function clearOrder() {
     setPoId(null);
@@ -361,6 +352,11 @@ export default function NewGrnPage() {
   }
 
   async function save(andPost: boolean) {
+    // A posted GRN has already moved stock; it can no longer be edited.
+    if (isEdit && purchaseDetail.data && purchaseDetail.data.status !== "Draft") {
+      toast.error(t("pur.alreadyTransacted"));
+      return;
+    }
     if (lines.length === 0) {
       toast.error(t("grn.addAtLeastOneLine"));
       return;

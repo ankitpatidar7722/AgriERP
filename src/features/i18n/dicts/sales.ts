@@ -38,6 +38,8 @@ export const sales: Record<string, Record<Lang, string>> = {
 
   /* ------------------------------- sale detail ----------------------------- */
   "sale.postInvoice": { en: "Post invoice", hi: "बिल पोस्ट करें", hg: "Invoice post karo" },
+  "sale.salesOrderDoc": { en: "Sales Order", hi: "सेल्स ऑर्डर", hg: "Sales Order" },
+  "sale.taxInvoiceDoc": { en: "Tax Invoice", hi: "टैक्स इनवॉइस", hg: "Tax Invoice" },
   "sale.items": { en: "Items", hi: "आइटम", hg: "Items" },
   "sale.item": { en: "Item", hi: "आइटम", hg: "Item" },
   "sale.batch": { en: "Batch", hi: "बैच", hg: "Batch" },
