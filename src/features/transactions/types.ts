@@ -218,6 +218,9 @@ export interface SalesOrderPrintDto {
 
 export interface PurchaseLineRequest {
   itemId: number;
+  /** The PO line this receipt fills; drives per-line PO reconciliation so one
+   *  GRN can span several purchase orders of the same supplier. */
+  purchaseOrderDetailId?: number | null;
   batchNumber?: string | null;
   manufacturingDate?: string | null;
   expiryDate?: string | null;
@@ -254,6 +257,8 @@ export interface PurchaseLineDto {
   purchaseDetailId: number;
   lineNumber: number;
   itemId: number;
+  /** The PO line this receipt filled, kept so editing a draft preserves the link. */
+  purchaseOrderDetailId?: number | null;
   itemName: string;
   unitCode: string;
   batchNumber?: string | null;

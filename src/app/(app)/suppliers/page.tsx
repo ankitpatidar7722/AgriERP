@@ -45,11 +45,11 @@ const schema = z.object({
   supplierName: z.string().min(1, "Name is required.").max(150),
   gstNumber: z.string().regex(GSTIN, "15 characters, e.g. 27AAAAA0000A1Z5.").nullable().optional().or(z.literal("")),
   panNumber: z.string().regex(PAN, "10 characters, e.g. AAAAA0000A.").nullable().optional().or(z.literal("")),
-  address: optionalText(300),
-  city: optionalText(80),
-  stateId: z.number().nullable(),
+  address: z.string().min(1, "Address is required.").max(300),
+  city: z.string().min(1, "City is required.").max(80),
+  stateId: z.number().min(1, "Select a state."),
   pincode: z.string().regex(PINCODE, "6 digits.").nullable().optional().or(z.literal("")),
-  phone: optionalText(15),
+  phone: z.string().min(1, "Phone is required.").max(15),
   alternatePhone: optionalText(15),
   email: z.string().email("Enter a valid email.").nullable().optional().or(z.literal("")),
   contactPerson: optionalText(120),
@@ -72,7 +72,7 @@ const EMPTY: FormValues = {
   panNumber: "",
   address: "",
   city: "",
-  stateId: null,
+  stateId: 0,
   pincode: "",
   phone: "",
   alternatePhone: "",
@@ -88,8 +88,6 @@ const EMPTY: FormValues = {
   remarks: "",
   isActive: true,
 };
-
-const NO_STATE = "none";
 
 export default function SuppliersPage() {
   const { can } = useAuth();
@@ -118,7 +116,7 @@ export default function SuppliersPage() {
       panNumber: full.panNumber ?? "",
       address: full.address ?? "",
       city: full.city ?? "",
-      stateId: full.stateId ?? null,
+      stateId: full.stateId ?? 0,
       pincode: full.pincode ?? "",
       phone: full.phone ?? "",
       alternatePhone: full.alternatePhone ?? "",
@@ -350,7 +348,6 @@ export default function SuppliersPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         title={editing ? t("sup.editTitle") : t("sup.newSupplier")}
-        description={editing ? undefined : t("sup.formDesc")}
         onSubmit={form.handleSubmit(onSubmit)}
         isPending={create.isPending || update.isPending}
         submitLabel={editing ? t("common.saveChanges") : t("common.create")}
@@ -370,29 +367,25 @@ export default function SuppliersPage() {
             <Input id="panNumber" className="uppercase" maxLength={10} {...form.register("panNumber")} />
           </Field>
 
-          <Field label={t("sup.phone")} htmlFor="phone" error={form.formState.errors.phone?.message}>
+          <Field label={t("sup.phone")} htmlFor="phone" required error={form.formState.errors.phone?.message}>
             <Input id="phone" {...form.register("phone")} />
-          </Field>
-          <Field label={t("sup.altPhone")} htmlFor="alternatePhone" error={form.formState.errors.alternatePhone?.message}>
-            <Input id="alternatePhone" {...form.register("alternatePhone")} />
           </Field>
           <Field label={t("sup.email")} htmlFor="email" error={form.formState.errors.email?.message}>
             <Input id="email" type="email" {...form.register("email")} />
           </Field>
-          <Field label={t("cust.city")} htmlFor="city" error={form.formState.errors.city?.message}>
+          <Field label={t("cust.city")} htmlFor="city" required error={form.formState.errors.city?.message}>
             <Input id="city" {...form.register("city")} />
           </Field>
 
-          <Field label={t("cust.state")} error={form.formState.errors.stateId?.message}>
+          <Field label={t("cust.state")} required error={form.formState.errors.stateId?.message}>
             <Select
-              value={form.watch("stateId") == null ? NO_STATE : String(form.watch("stateId"))}
-              onValueChange={(value) => form.setValue("stateId", value === NO_STATE ? null : Number(value))}
+              value={form.watch("stateId") ? String(form.watch("stateId")) : ""}
+              onValueChange={(value) => form.setValue("stateId", Number(value))}
             >
               <SelectTrigger>
                 <SelectValue placeholder={t("cust.selectState")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_STATE}>{t("cust.notSet")}</SelectItem>
                 {(states.data ?? []).map((state) => (
                   <SelectItem key={state.id} value={String(state.id)}>
                     {state.name}
@@ -427,34 +420,6 @@ export default function SuppliersPage() {
             />
           </Field>
 
-          <Field
-            label={t("sup.openingBalance")}
-            htmlFor="openingBalance"
-            error={form.formState.errors.openingBalance?.message}
-            hint={t("sup.openingHint")}
-          >
-            <div className="flex gap-2">
-              <NumberInput
-                id="openingBalance"
-                value={form.watch("openingBalance")}
-                onChange={(value) => form.setValue("openingBalance", value)}
-                min={0}
-                step="0.01"
-              />
-              <Select
-                value={form.watch("openingBalanceType")}
-                onValueChange={(value) => form.setValue("openingBalanceType", value as "DR" | "CR")}
-              >
-                <SelectTrigger className="w-[76px] shrink-0" aria-label="Balance type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CR">CR</SelectItem>
-                  <SelectItem value="DR">DR</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </Field>
           <Field label={t("sup.bankName")} htmlFor="bankName" error={form.formState.errors.bankName?.message}>
             <Input id="bankName" {...form.register("bankName")} />
           </Field>
@@ -467,7 +432,7 @@ export default function SuppliersPage() {
         </FieldGrid>
 
         <FieldGrid columns={2}>
-          <Field label={t("cust.address")} htmlFor="address" error={form.formState.errors.address?.message}>
+          <Field label={t("cust.address")} htmlFor="address" required error={form.formState.errors.address?.message}>
             <Textarea id="address" rows={2} {...form.register("address")} />
           </Field>
           <Field label={t("common.remarks")} htmlFor="remarks" error={form.formState.errors.remarks?.message}>

@@ -39,7 +39,7 @@ export default function PurchaseOrdersPage() {
   const { can } = useAuth();
   const router = useRouter();
   const t = useT();
-  const [tab, setTab] = useState<Tab>("orders");
+  const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState<PurchaseOrderQuery>({ page: 1, pageSize: 25 });
   const [reqQuery, setReqQuery] = useState<PurchaseRequisitionQuery>({
     page: 1,

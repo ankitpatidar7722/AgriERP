@@ -377,26 +377,7 @@ export default function NewSaleOrderPage() {
 
   return (
     <>
-      <PageHeader
-        title={t("bill.title")}
-        description={t("bill.desc")}
-        actions={
-          <>
-            <Button variant="outline" onClick={() => router.push("/sales")} disabled={isBusy}>
-              {t("common.cancel")}
-            </Button>
-            <Button variant="outline" onClick={() => void save(false)} disabled={isBusy}>
-              {t("bill.saveDraft")}
-            </Button>
-            {can(Permissions.Sales.Post) && (
-              <Button onClick={() => void save(true)} disabled={isBusy}>
-                {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {t("bill.savePost")}
-              </Button>
-            )}
-          </>
-        }
-      />
+      <PageHeader title={t("bill.title")} description={t("bill.desc")} />
 
       <div className="space-y-4">
         {/* --------------------------- header strip --------------------------- */}
@@ -773,6 +754,29 @@ export default function NewSaleOrderPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* --------------------------- sticky action bar --------------------------- */}
+      <div className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 sm:px-5 lg:-mx-7 lg:px-7">
+        <div className="hidden text-sm text-muted-foreground sm:block">
+          {lines.length} {lines.length === 1 ? t("bill.itemLower", "item") : t("bill.itemsLower", "items")} ·{" "}
+          {t("bill.grandTotal")}{" "}
+          <span className="font-medium text-foreground">{formatCurrency(effectiveTotal)}</span>
+        </div>
+        <div className="flex flex-1 flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={() => router.push("/sales")} disabled={isBusy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="outline" onClick={() => void save(false)} disabled={isBusy}>
+            {t("bill.saveDraft")}
+          </Button>
+          {can(Permissions.Sales.Post) && (
+            <Button variant="success" onClick={() => void save(true)} disabled={isBusy}>
+              {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {t("bill.savePost")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <ItemMasterPicker

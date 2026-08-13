@@ -304,6 +304,17 @@ export function usePurchaseOrder(id: number | null) {
   });
 }
 
+/** Several orders (with lines) at once - used to build one GRN from multiple
+ *  pending POs of the same supplier. */
+export function usePurchaseOrdersByIds(ids: number[]) {
+  const key = ids.join(",");
+  return useQuery({
+    queryKey: ["purchase-orders", "by-ids", key],
+    queryFn: () => apiGet<PurchaseOrderDto[]>("/purchases/orders/by-ids", { ids: key }),
+    enabled: ids.length > 0,
+  });
+}
+
 export function usePurchaseOrderPrint(id: number | null) {
   return useQuery({
     queryKey: ["purchase-orders", "print", id],

@@ -26,7 +26,7 @@ import {
   useCreatePurchase,
   usePostPurchase,
   usePurchase,
-  usePurchaseOrder,
+  usePurchaseOrdersByIds,
   usePurchaseOrders,
   useItemSearch,
   useUpdatePurchase,
@@ -59,6 +59,8 @@ import { useT } from "@/features/i18n/provider";
  */
 interface GrnLine {
   key: string;
+  /** The PO line this row fills, when the GRN receives against orders. */
+  purchaseOrderDetailId?: number;
   item: ItemLookupDto;
   batchNumber: string;
   expiryDate: string;
@@ -95,10 +97,11 @@ export default function NewGrnPage() {
   const [warehouseId, setWarehouseId] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Purchase-order link. `poId` drives the detail fetch; `appliedPoId` remembers
-  // which order's lines are already loaded so the effect applies each one once.
-  const [poId, setPoId] = useState<number | null>(null);
-  const [appliedPoId, setAppliedPoId] = useState<number | null>(null);
+  // Purchase-order link. `poIds` drives the detail fetch (one id for a single
+  // receive, several when receiving multiple POs of one supplier into one GRN);
+  // `appliedPoKey` remembers which set is already loaded so it applies once.
+  const [poIds, setPoIds] = useState<number[]>([]);
+  const [appliedPoKey, setAppliedPoKey] = useState<string | null>(null);
   const [poNumber, setPoNumber] = useState<string | null>(null);
   const [poSearch, setPoSearch] = useState("");
 
@@ -117,8 +120,16 @@ export default function NewGrnPage() {
       setEditId(eId);
       return;
     }
+    const many = (params.get("poIds") ?? "")
+      .split(",")
+      .map((s) => Number(s))
+      .filter((n) => n > 0);
+    if (many.length > 0) {
+      setPoIds(many);
+      return;
+    }
     const id = Number(params.get("poId"));
-    if (id > 0) setPoId(id);
+    if (id > 0) setPoIds([id]);
   }, []);
 
   const itemInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +139,7 @@ export default function NewGrnPage() {
   const suppliers = supplierHooks.useLookup();
   const queryClient = useQueryClient();
   const openOrders = usePurchaseOrders({ page: 1, pageSize: 50, pendingOnly: true });
-  const poDetail = usePurchaseOrder(poId);
+  const poDetails = usePurchaseOrdersByIds(poIds);
   const purchaseDetail = usePurchase(editId);
   const warehouses = warehouseHooks.useLookup();
   const createPurchase = useCreatePurchase();
@@ -136,62 +147,74 @@ export default function NewGrnPage() {
   const postPurchase = usePostPurchase();
   const createSupplier = supplierHooks.useCreate();
 
-  const fromPo = poId != null;
+  const fromPo = poIds.length > 0;
 
-  /* --------------------- apply a chosen purchase order ------------------- */
-  function applyOrder(order: PurchaseOrderDto) {
-    setSupplierId(order.supplierId);
-    setSupplierSearch(order.supplierName);
-    setPoNumber(order.orderNumber);
+  /* --------------------- apply chosen purchase order(s) ------------------ */
+  function applyOrders(orders: PurchaseOrderDto[]) {
+    if (orders.length === 0) return;
+    const first = orders[0];
+    setSupplierId(first.supplierId);
+    setSupplierSearch(first.supplierName);
+    setPoNumber(
+      orders.length === 1
+        ? first.orderNumber
+        : `${first.orderNumber} +${orders.length - 1} ${t("grn.morePos", "more")}`,
+    );
     setLines(
-      order.lines
-        .filter((l) => l.pendingQty > 0)
-        .map((l) => ({
-          key: `po-${l.purchaseOrderDetailId}`,
-          item: {
-            id: l.itemId,
-            code: "",
-            name: l.itemName,
-            shortName: null,
-            description: null,
-            barcode: null,
-            unitId: l.unitId,
-            unitCode: l.unitCode,
-            sellingRate: l.sellingRate,
-            wholesaleRate: 0,
-            dealerRate: 0,
+      orders.flatMap((order) =>
+        order.lines
+          .filter((l) => l.pendingQty > 0)
+          .map((l) => ({
+            key: `po-${l.purchaseOrderDetailId}`,
+            purchaseOrderDetailId: l.purchaseOrderDetailId,
+            item: {
+              id: l.itemId,
+              code: "",
+              name: l.itemName,
+              shortName: null,
+              description: null,
+              barcode: null,
+              unitId: l.unitId,
+              unitCode: l.unitCode,
+              sellingRate: l.sellingRate,
+              wholesaleRate: 0,
+              dealerRate: 0,
+              mrp: l.mrp,
+              minSellingRate: 0,
+              gstPercent: l.gstPercent,
+              hsnCode: l.hsnCode,
+              currentStock: 0,
+              isActive: true,
+            },
+            batchNumber: "",
+            expiryDate: "",
+            // Receipt defaults to what is still owed on the order; edit down for
+            // a short delivery.
+            quantity: l.pendingQty,
+            freeQuantity: 0,
+            rate: l.rate,
+            discountPercent: 0,
             mrp: l.mrp,
-            minSellingRate: 0,
-            gstPercent: l.gstPercent,
-            hsnCode: l.hsnCode,
-            currentStock: 0,
-            isActive: true,
-          },
-          batchNumber: "",
-          expiryDate: "",
-          // Receipt defaults to what is still owed on the order; edit down for a
-          // short delivery.
-          quantity: l.pendingQty,
-          freeQuantity: 0,
-          rate: l.rate,
-          discountPercent: 0,
-          mrp: l.mrp,
-          sellingRate: l.sellingRate,
-          orderedQty: l.orderedQty,
-          pendingQty: l.pendingQty,
-        })),
+            sellingRate: l.sellingRate,
+            orderedQty: l.orderedQty,
+            pendingQty: l.pendingQty,
+          })),
+      ),
     );
   }
 
-  // Prefill once the linked order's detail (with its lines) has loaded. Skipped
-  // while editing: the draft brings its own lines and `appliedPoId` is pre-set.
+  // Prefill once the linked orders' details (with their lines) have loaded.
+  // Skipped while editing: the draft brings its own lines and `appliedPoKey` is
+  // pre-set to suppress a reload that would replace them.
   useEffect(() => {
-    const order = poDetail.data;
-    if (order && order.purchaseOrderId !== appliedPoId) {
-      applyOrder(order);
-      setAppliedPoId(order.purchaseOrderId);
+    const orders = poDetails.data;
+    if (!orders || orders.length === 0) return;
+    const key = orders.map((o) => o.purchaseOrderId).join(",");
+    if (key !== appliedPoKey) {
+      applyOrders(orders);
+      setAppliedPoKey(key);
     }
-  }, [poDetail.data, appliedPoId]);
+  }, [poDetails.data, appliedPoKey]);
 
   function purchaseLineToGrn(l: PurchaseLineDto): GrnLine {
     // The stored line keeps a discount amount, not a percent; recover an
@@ -199,6 +222,7 @@ export default function NewGrnPage() {
     const discountPercent = l.grossAmount > 0 ? round2((l.discountAmount / l.grossAmount) * 100) : 0;
     return {
       key: `grn-${l.purchaseDetailId}`,
+      purchaseOrderDetailId: l.purchaseOrderDetailId ?? undefined,
       item: {
         id: l.itemId,
         code: "",
@@ -251,16 +275,16 @@ export default function NewGrnPage() {
     // Keep the PO link but suppress applyOrder (which would replace the lines
     // with the order's pending rows) by marking the order already applied.
     if (data.purchaseOrderId) {
-      setPoId(data.purchaseOrderId);
-      setAppliedPoId(data.purchaseOrderId);
+      setPoIds([data.purchaseOrderId]);
+      setAppliedPoKey(String(data.purchaseOrderId));
     }
 
     setAppliedEditId(data.purchaseId);
   }, [purchaseDetail.data, appliedEditId]);
 
   function clearOrder() {
-    setPoId(null);
-    setAppliedPoId(null);
+    setPoIds([]);
+    setAppliedPoKey(null);
     setPoNumber(null);
     setPoSearch("");
     setLines([]);
@@ -405,7 +429,7 @@ export default function NewGrnPage() {
     const body = {
       purchaseDate,
       supplierId: effectiveSupplierId,
-      purchaseOrderId: poId,
+      purchaseOrderId: poIds.length === 1 ? poIds[0] : null,
       warehouseId,
       supplierInvoiceNumber: supplierBillNo || null,
       supplierInvoiceDate: supplierBillDate || null,
@@ -416,6 +440,7 @@ export default function NewGrnPage() {
       creditDays: pending > 0 ? creditDays : null,
       lines: lines.map((line, index) => ({
         itemId: line.item.id,
+        purchaseOrderDetailId: line.purchaseOrderDetailId ?? null,
         batchNumber: line.batchNumber || null,
         expiryDate: line.expiryDate || null,
         quantity: line.quantity,
@@ -506,7 +531,7 @@ export default function NewGrnPage() {
             >
               {isEdit ? (
                 <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm font-medium">
-                  {poId ? poDetail.data?.orderNumber ?? t("common.loading") : t("grn.directReceipt")}
+                  {poIds.length > 0 ? poNumber ?? t("common.loading") : t("grn.directReceipt")}
                 </div>
               ) : fromPo ? (
                 <div className="flex h-10 items-center justify-between gap-2 rounded-md border bg-muted/50 px-3 text-sm">
@@ -531,7 +556,7 @@ export default function NewGrnPage() {
                   openOnFocus
                   placeholder={t("grn.searchOpenOrder")}
                   emptyMessage={t("grn.noOpenOrders")}
-                  onSelect={(option) => setPoId(option.id)}
+                  onSelect={(option) => setPoIds([option.id])}
                 />
               )}
             </Field>

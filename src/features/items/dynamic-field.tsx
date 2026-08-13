@@ -81,7 +81,7 @@ export function DynamicField({ field, value, onChange, lookups, error }: Dynamic
     switch (field.fieldType) {
       case "checkbox":
         return (
-          <div className="flex h-10 items-center">
+          <div className="flex h-9 items-center">
             <Switch
               id={id}
               checked={Boolean(value)}
@@ -110,7 +110,7 @@ export function DynamicField({ field, value, onChange, lookups, error }: Dynamic
 
         return (
           <Select
-            value={value == null || value === "" ? NONE : String(value)}
+            value={value == null || value === "" ? "" : String(value)}
             disabled={field.isReadOnly}
             onValueChange={(next) => onChange(next === NONE ? null : Number(next))}
           >

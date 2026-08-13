@@ -17,9 +17,9 @@ const buttonVariants = cva(
           "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        // The green primary-action colour used on master-form Save buttons.
+        // The light-green primary-action colour used on Save buttons.
         success:
-          "bg-[#2e9e4f] text-white shadow hover:bg-[#268544]",
+          "bg-[#22c55e] text-white shadow hover:bg-[#16a34a]",
         // A true neutral grey. --secondary is a faint green in this theme, so
         // the list screens' "New X" launcher buttons use --muted instead to sit
         // quietly beside the grey grid.

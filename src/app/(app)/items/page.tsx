@@ -55,35 +55,47 @@ const schema = z
     packingSize: z.number().nullable(),
     packingUnitId: z.number().nullable(),
     unitId: z.number().min(1, "Select a unit."),
-    purchaseUnitId: z.number().nullable(),
-    stockUnitId: z.number().nullable(),
+    purchaseUnitId: z.number().min(1, "Select a purchase unit."),
+    stockUnitId: z.number().min(1, "Select a stock unit."),
     hsnId: z.number().nullable(),
-    gstSlabId: z.number().min(1, "Select a GST rate."),
-    purchaseRate: z.number().min(0),
-    sellingRate: z.number().min(0),
-    mrp: z.number().min(0),
-    wholesaleRate: z.number().min(0),
-    dealerRate: z.number().min(0),
-    minSellingRate: z.number().min(0),
-    minStockLevel: z.number().min(0),
-    maxStockLevel: z.number().min(0),
-    reorderLevel: z.number().min(0),
+    // Optional now: no asterisk, may be left unset (sent as 0 on save).
+    gstSlabId: z.number().nullable(),
+    // Rates are entered blank; only purchase and selling rate are mandatory
+    // (enforced by the two refines below). The rest fall back to 0 on save.
+    purchaseRate: z.number().min(0).nullable(),
+    sellingRate: z.number().min(0).nullable(),
+    mrp: z.number().min(0).nullable(),
+    wholesaleRate: z.number().min(0).nullable(),
+    dealerRate: z.number().min(0).nullable(),
+    minSellingRate: z.number().min(0).nullable(),
+    minStockLevel: z.number().min(0).nullable(),
+    maxStockLevel: z.number().min(0).nullable(),
+    reorderLevel: z.number().min(0).nullable(),
     isBatchTracked: z.boolean(),
     isExpiryTracked: z.boolean(),
     allowNegativeStock: z.boolean(),
     isActive: z.boolean(),
   })
-  // The same three rules the server enforces, checked here so the operator
-  // sees them before the round trip.
-  .refine((v) => v.mrp <= 0 || v.sellingRate <= v.mrp, {
+  // Mandatory rates.
+  .refine((v) => v.purchaseRate != null, {
+    message: "Purchase rate is required.",
+    path: ["purchaseRate"],
+  })
+  .refine((v) => v.sellingRate != null, {
+    message: "Selling rate is required.",
+    path: ["sellingRate"],
+  })
+  // The same rules the server enforces, checked here so the operator sees them
+  // before the round trip. An unset (null) field skips its paired check.
+  .refine((v) => (v.mrp ?? 0) <= 0 || (v.sellingRate ?? 0) <= (v.mrp ?? 0), {
     message: "Cannot exceed the MRP - billing above MRP is not permitted.",
     path: ["sellingRate"],
   })
-  .refine((v) => v.minSellingRate <= 0 || v.sellingRate >= v.minSellingRate, {
+  .refine((v) => (v.minSellingRate ?? 0) <= 0 || (v.sellingRate ?? 0) >= (v.minSellingRate ?? 0), {
     message: "Cannot be below the minimum selling rate.",
     path: ["sellingRate"],
   })
-  .refine((v) => v.maxStockLevel <= 0 || v.maxStockLevel >= v.minStockLevel, {
+  .refine((v) => (v.maxStockLevel ?? 0) <= 0 || (v.maxStockLevel ?? 0) >= (v.minStockLevel ?? 0), {
     message: "Cannot be below the minimum.",
     path: ["maxStockLevel"],
   })
@@ -108,19 +120,19 @@ const EMPTY: FormValues = {
   packingSize: null,
   packingUnitId: null,
   unitId: 0,
-  purchaseUnitId: null,
-  stockUnitId: null,
+  purchaseUnitId: 0,
+  stockUnitId: 0,
   hsnId: null,
-  gstSlabId: 0,
-  purchaseRate: 0,
-  sellingRate: 0,
-  mrp: 0,
-  wholesaleRate: 0,
-  dealerRate: 0,
-  minSellingRate: 0,
-  minStockLevel: 0,
-  maxStockLevel: 0,
-  reorderLevel: 0,
+  gstSlabId: null,
+  purchaseRate: null,
+  sellingRate: null,
+  mrp: null,
+  wholesaleRate: null,
+  dealerRate: null,
+  minSellingRate: null,
+  minStockLevel: null,
+  maxStockLevel: null,
+  reorderLevel: null,
   isBatchTracked: true,
   isExpiryTracked: true,
   allowNegativeStock: false,
@@ -129,6 +141,30 @@ const EMPTY: FormValues = {
 
 const NONE = "none";
 const ALL = "all";
+
+// Group fields hidden from every group by request (agrochemical safety fields
+// the shop does not track). Matched on a normalised name so the definition's
+// exact wording/casing does not matter.
+const HIDDEN_FIELD_KEYS = ["antidote", "preharvest"];
+const normFieldKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * The group's own fields as the form actually uses them: never the item's own
+ * columns, never the hidden ones, and never mandatory - the group-specific
+ * attributes (composition, seed details, ...) are all optional so an item can
+ * be created without filling every one. Shared by the renderer and the submit
+ * validator, so nothing a group field asks for can block a save.
+ */
+function visibleGroupFields(
+  definition: ItemFormDefinitionDto | undefined,
+): ItemFormDefinitionDto["fields"] {
+  const keyOf = (f: ItemFormDefinitionDto["fields"][number]) =>
+    `${normFieldKey(f.fieldDisplayName)} ${normFieldKey(f.fieldName)}`;
+  return (definition?.fields ?? [])
+    .filter((f) => !f.isStoredOnItem)
+    .filter((f) => !HIDDEN_FIELD_KEYS.some((h) => keyOf(f).includes(h)))
+    .map((f) => ({ ...f, isRequired: false }));
+}
 
 /**
  * The group-specific half of the item form, rendered from the definition the
@@ -158,7 +194,7 @@ function DynamicGroupFields({
     return <p className="text-sm text-muted-foreground">{t("item.loadingGroupFields")}</p>;
   }
 
-  const fields = (definition?.fields ?? []).filter((f) => !f.isStoredOnItem);
+  const fields = visibleGroupFields(definition);
   if (fields.length === 0) return null;
 
   const sections = Array.from(new Set(fields.map((f) => f.sectionName ?? "Details")));
@@ -232,6 +268,12 @@ export default function ItemsPage() {
   const activeGroupName = useMemo(() => {
     const group = (groups.data ?? []).find((g) => g.itemGroupId === itemGroupId);
     return group ? `${group.itemGroupName} (${group.itemCodePrefix}-)` : "";
+  }, [groups.data, itemGroupId]);
+
+  /** The group's name alone, used for the dialog title ("Product Master Creation"). */
+  const activeGroupTitle = useMemo(() => {
+    const group = (groups.data ?? []).find((g) => g.itemGroupId === itemGroupId);
+    return group?.itemGroupName ?? "";
   }, [groups.data, itemGroupId]);
 
   /*
@@ -316,8 +358,8 @@ export default function ItemsPage() {
       packingSize: full.packingSize ?? null,
       packingUnitId: full.packingUnitId ?? null,
       unitId: full.unitId,
-      purchaseUnitId: full.purchaseUnitId ?? null,
-      stockUnitId: full.stockUnitId ?? null,
+      purchaseUnitId: full.purchaseUnitId ?? 0,
+      stockUnitId: full.stockUnitId ?? 0,
       hsnId: full.hsnId ?? null,
       gstSlabId: full.gstSlabId,
       purchaseRate: full.purchaseRate,
@@ -406,7 +448,7 @@ export default function ItemsPage() {
     // The group's own fields are validated from their definition, since they
     // are not in the zod schema - the schema cannot know about a field that
     // was added by a migration after this file was written.
-    const groupFields = (formDefinition.data?.fields ?? []).filter((f) => !f.isStoredOnItem);
+    const groupFields = visibleGroupFields(formDefinition.data);
     const fieldErrors = validateDynamicFields(groupFields, extraValues, t);
     setExtraErrors(fieldErrors);
 
@@ -432,6 +474,19 @@ export default function ItemsPage() {
       shortName: values.shortName || null,
       technicalName: values.technicalName || null,
       brand: values.brand || null,
+      // The form holds these as null (shown blank) but the API wants numbers;
+      // an untouched optional field lands as 0. The two mandatory rates are
+      // already guaranteed non-null by validation before we get here.
+      gstSlabId: values.gstSlabId ?? 0,
+      purchaseRate: values.purchaseRate ?? 0,
+      sellingRate: values.sellingRate ?? 0,
+      mrp: values.mrp ?? 0,
+      wholesaleRate: values.wholesaleRate ?? 0,
+      dealerRate: values.dealerRate ?? 0,
+      minSellingRate: values.minSellingRate ?? 0,
+      minStockLevel: values.minStockLevel ?? 0,
+      maxStockLevel: values.maxStockLevel ?? 0,
+      reorderLevel: values.reorderLevel ?? 0,
     };
     try {
       if (editing) await update.mutateAsync({ id: editing.itemId, body });
@@ -704,8 +759,15 @@ export default function ItemsPage() {
       <FormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        title={editing ? t("item.editTitle") : t("item.newItem")}
-        description={editing ? undefined : t("item.formDesc")}
+        title={
+          activeGroupTitle
+            ? editing
+              ? `${t("common.edit", "Edit")} ${activeGroupTitle}`
+              : `${activeGroupTitle} ${t("item.creationWord", "Creation")}`
+            : editing
+              ? t("item.editTitle")
+              : t("item.newItem")
+        }
         onSubmit={form.handleSubmit(onSubmit, onInvalid)}
         isPending={create.isPending || update.isPending}
         submitLabel={editing ? t("common.saveChanges") : t("common.create")}
@@ -728,72 +790,51 @@ export default function ItemsPage() {
         */}
         <div className="space-y-4">
           {/*
-            The group comes first because it decides the rest of the form. It
-            is locked once an item exists: moving an item between groups would
-            strand its group-specific answers under fields the new group does
-            not define, and change what its code means.
+            One dense 4-column grid for every standard field, so the form reads
+            as one continuous sheet with no half-empty rows between sections.
+            The group is read-only and comes first: it decides the rest of the
+            form and is locked once an item exists (moving groups would strand
+            the item's group-specific answers and change what its code means).
           */}
-          <FormSection title={t("item.sectionGroup")} />
           <FieldGrid columns={4}>
-            {/*
-              Read-only, not a dropdown: a new item takes the group chosen in the
-              list above, and an existing item's group is fixed - moving it would
-              strand its group-specific answers and change what its code means.
-              The name is shown so the operator knows which group's fields the
-              form below is asking for.
-            */}
-            <Field
-              label={t("item.group")}
-              hint={editing ? t("item.groupHintFixed") : t("item.groupHintNew")}
-            >
-              <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm font-medium">
+            <Field label={t("item.group")}>
+              <div className="flex h-9 items-center rounded-md border bg-muted/50 px-3 text-sm font-medium">
                 {activeGroupName || "—"}
               </div>
             </Field>
-          </FieldGrid>
-
-          <FormSection title={t("item.sectionBasicDetails")} />
-
-          <FieldGrid columns={4}>
             <Field label={t("item.itemName")} htmlFor="itemName" required error={form.formState.errors.itemName?.message}>
               <Input id="itemName" {...form.register("itemName")} />
             </Field>
-            <Field label={t("item.shortName")} htmlFor="shortName" error={form.formState.errors.shortName?.message} hint={t("item.shortNameHint")}>
+            <Field label={t("item.subGroup")} htmlFor="itemSubGroupId" required error={form.formState.errors.itemSubGroupId?.message}>
+              <Select
+                value={form.watch("itemSubGroupId") ? String(form.watch("itemSubGroupId")) : ""}
+                onValueChange={(value) => form.setValue("itemSubGroupId", Number(value))}
+              >
+                <SelectTrigger id="itemSubGroupId">
+                  <SelectValue placeholder={t("item.selectSubGroup")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {subGroupsForGroup.map((option) => (
+                    <SelectItem key={option.itemSubGroupId} value={String(option.itemSubGroupId)}>
+                      {option.itemSubGroupName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label={t("item.shortName")} htmlFor="shortName" error={form.formState.errors.shortName?.message}>
               <Input id="shortName" {...form.register("shortName")} />
             </Field>
             <Field
               label={t("item.technicalName")}
               htmlFor="technicalName"
               error={form.formState.errors.technicalName?.message}
-              hint={t("item.technicalNameHint")}
             >
               <Input id="technicalName" {...form.register("technicalName")} />
             </Field>
-            <Field label={t("item.brand")} htmlFor="brand" error={form.formState.errors.brand?.message}>
-              <Input id="brand" {...form.register("brand")} />
-            </Field>
-
-            <Field label={t("item.subGroup")} htmlFor="itemSubGroupId" required error={form.formState.errors.itemSubGroupId?.message}>
-                <Select
-                  value={form.watch("itemSubGroupId") ? String(form.watch("itemSubGroupId")) : ""}
-                  onValueChange={(value) => form.setValue("itemSubGroupId", Number(value))}
-                >
-                  <SelectTrigger id="itemSubGroupId">
-                    <SelectValue placeholder={t("item.selectSubGroup")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subGroupsForGroup.map((option) => (
-                      <SelectItem key={option.itemSubGroupId} value={String(option.itemSubGroupId)}>
-                        {option.itemSubGroupName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
               <Field label={t("item.company")} htmlFor="companyId" error={form.formState.errors.companyId?.message}>
                 <Select
-                  value={form.watch("companyId") == null ? NONE : String(form.watch("companyId"))}
+                  value={form.watch("companyId") == null ? "" : String(form.watch("companyId"))}
                   onValueChange={(value) =>
                     form.setValue("companyId", value === NONE ? null : Number(value))
                   }
@@ -812,47 +853,15 @@ export default function ItemsPage() {
                 </Select>
               </Field>
 
-              <Field label={t("item.packSize")} htmlFor="packingSize" error={form.formState.errors.packingSize?.message}>
-                <NumberInput
-                  id="packingSize"
-                  value={form.watch("packingSize")}
-                  onChange={(value) => form.setValue("packingSize", value || null)}
-                  min={0}
-                  step="0.001"
-                />
-              </Field>
-              <Field label={t("item.packUnit")} htmlFor="packingUnitId" error={form.formState.errors.packingUnitId?.message}>
+              <Field label={t("item.purchaseUnit")} htmlFor="purchaseUnitId" required error={form.formState.errors.purchaseUnitId?.message}>
                 <Select
-                  value={form.watch("packingUnitId") == null ? NONE : String(form.watch("packingUnitId"))}
-                  onValueChange={(value) =>
-                    form.setValue("packingUnitId", value === NONE ? null : Number(value))
-                  }
-                >
-                  <SelectTrigger id="packingUnitId">
-                    <SelectValue placeholder={t("item.unitPlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>{t("item.notSet")}</SelectItem>
-                    {(options?.units ?? []).map((option) => (
-                      <SelectItem key={option.id} value={String(option.id)}>
-                        {option.code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label={t("item.purchaseUnit")} htmlFor="purchaseUnitId" error={form.formState.errors.purchaseUnitId?.message}>
-                <Select
-                  value={form.watch("purchaseUnitId") == null ? NONE : String(form.watch("purchaseUnitId"))}
-                  onValueChange={(value) =>
-                    form.setValue("purchaseUnitId", value === NONE ? null : Number(value))
-                  }
+                  value={form.watch("purchaseUnitId") ? String(form.watch("purchaseUnitId")) : ""}
+                  onValueChange={(value) => form.setValue("purchaseUnitId", Number(value))}
                 >
                   <SelectTrigger id="purchaseUnitId">
                     <SelectValue placeholder={t("item.unitPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>{t("item.notSet")}</SelectItem>
                     {(options?.units ?? []).map((option) => (
                       <SelectItem key={option.id} value={String(option.id)}>
                         {option.code} - {option.name}
@@ -861,18 +870,15 @@ export default function ItemsPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label={t("item.stockUnit")} htmlFor="stockUnitId" error={form.formState.errors.stockUnitId?.message}>
+              <Field label={t("item.stockUnit")} htmlFor="stockUnitId" required error={form.formState.errors.stockUnitId?.message}>
                 <Select
-                  value={form.watch("stockUnitId") == null ? NONE : String(form.watch("stockUnitId"))}
-                  onValueChange={(value) =>
-                    form.setValue("stockUnitId", value === NONE ? null : Number(value))
-                  }
+                  value={form.watch("stockUnitId") ? String(form.watch("stockUnitId")) : ""}
+                  onValueChange={(value) => form.setValue("stockUnitId", Number(value))}
                 >
                   <SelectTrigger id="stockUnitId">
                     <SelectValue placeholder={t("item.unitPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>{t("item.notSet")}</SelectItem>
                     {(options?.units ?? []).map((option) => (
                       <SelectItem key={option.id} value={String(option.id)}>
                         {option.code} - {option.name}
@@ -899,14 +905,9 @@ export default function ItemsPage() {
                 </Select>
               </Field>
 
-            </FieldGrid>
-
-            <FormSection title={t("item.sectionPricingTax")} />
-
-            <FieldGrid columns={4}>
               <Field label={t("item.hsnCode")} htmlFor="hsnId" error={form.formState.errors.hsnId?.message}>
                 <Select
-                  value={form.watch("hsnId") == null ? NONE : String(form.watch("hsnId"))}
+                  value={form.watch("hsnId") == null ? "" : String(form.watch("hsnId"))}
                   onValueChange={(value) => form.setValue("hsnId", value === NONE ? null : Number(value))}
                 >
                   <SelectTrigger id="hsnId">
@@ -922,15 +923,16 @@ export default function ItemsPage() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field label={t("item.gstRate")} htmlFor="gstSlabId" required error={form.formState.errors.gstSlabId?.message}>
+              <Field label={t("item.gstRate")} htmlFor="gstSlabId" error={form.formState.errors.gstSlabId?.message}>
                 <Select
-                  value={form.watch("gstSlabId") ? String(form.watch("gstSlabId")) : ""}
-                  onValueChange={(value) => form.setValue("gstSlabId", Number(value))}
+                  value={form.watch("gstSlabId") == null ? "" : String(form.watch("gstSlabId"))}
+                  onValueChange={(value) => form.setValue("gstSlabId", value === NONE ? null : Number(value))}
                 >
                   <SelectTrigger id="gstSlabId">
                     <SelectValue placeholder={t("item.selectGstRate")} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={NONE}>{t("item.notSet")}</SelectItem>
                     {(options?.gstSlabs ?? []).map((option) => (
                       <SelectItem key={option.id} value={String(option.id)}>
                         {option.name}
@@ -952,8 +954,8 @@ export default function ItemsPage() {
               <Field
                 label={t("item.purchaseRate")}
                 htmlFor="purchaseRate"
+                required
                 error={form.formState.errors.purchaseRate?.message}
-                hint={t("item.purchaseRateHint")}
               >
                 <NumberInput
                   id="purchaseRate"
@@ -963,7 +965,7 @@ export default function ItemsPage() {
                   step="0.0001"
                 />
               </Field>
-              <Field label={t("item.sellingRate")} htmlFor="sellingRate" error={form.formState.errors.sellingRate?.message}>
+              <Field label={t("item.sellingRate")} htmlFor="sellingRate" required error={form.formState.errors.sellingRate?.message}>
                 <NumberInput
                   id="sellingRate"
                   value={form.watch("sellingRate")}
@@ -976,7 +978,6 @@ export default function ItemsPage() {
                 label={t("item.minSellingRate")}
                 htmlFor="minSellingRate"
                 error={form.formState.errors.minSellingRate?.message}
-                hint={t("item.minSellingRateHint")}
               >
                 <NumberInput
                   id="minSellingRate"
@@ -1005,6 +1006,15 @@ export default function ItemsPage() {
                   step="0.0001"
                 />
               </Field>
+              <Field label={t("item.minStock")} htmlFor="minStockLevel" error={form.formState.errors.minStockLevel?.message}>
+                <NumberInput
+                  id="minStockLevel"
+                  value={form.watch("minStockLevel")}
+                  onChange={(value) => form.setValue("minStockLevel", value)}
+                  min={0}
+                  step="0.001"
+                />
+              </Field>
             </FieldGrid>
 
             {/*
@@ -1023,38 +1033,6 @@ export default function ItemsPage() {
               }
               lookups={dynamicLookups}
             />
-
-            <FormSection title={t("item.stock")} />
-
-            <FieldGrid columns={4}>
-              <Field label={t("item.minStock")} htmlFor="minStockLevel" error={form.formState.errors.minStockLevel?.message} hint={t("item.minStockHint")}>
-                <NumberInput
-                  id="minStockLevel"
-                  value={form.watch("minStockLevel")}
-                  onChange={(value) => form.setValue("minStockLevel", value)}
-                  min={0}
-                  step="0.001"
-                />
-              </Field>
-              <Field label={t("item.maxStock")} htmlFor="maxStockLevel" error={form.formState.errors.maxStockLevel?.message}>
-                <NumberInput
-                  id="maxStockLevel"
-                  value={form.watch("maxStockLevel")}
-                  onChange={(value) => form.setValue("maxStockLevel", value)}
-                  min={0}
-                  step="0.001"
-                />
-              </Field>
-              <Field label={t("item.reorderLevel")} htmlFor="reorderLevel" error={form.formState.errors.reorderLevel?.message}>
-                <NumberInput
-                  id="reorderLevel"
-                  value={form.watch("reorderLevel")}
-                  onChange={(value) => form.setValue("reorderLevel", value)}
-                  min={0}
-                  step="0.001"
-                />
-              </Field>
-            </FieldGrid>
 
             <div className="grid gap-x-6 gap-y-3 rounded-lg border p-4 sm:grid-cols-2">
               <div className="flex items-center justify-between gap-4">
@@ -1090,19 +1068,6 @@ export default function ItemsPage() {
                   checked={form.watch("isExpiryTracked")}
                   disabled={!form.watch("isBatchTracked")}
                   onCheckedChange={(checked) => form.setValue("isExpiryTracked", checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">{t("item.allowNegativeStock")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("item.allowNegativeStockDesc")}
-                  </p>
-                </div>
-                <Switch
-                  checked={form.watch("allowNegativeStock")}
-                  onCheckedChange={(checked) => form.setValue("allowNegativeStock", checked)}
                 />
               </div>
 

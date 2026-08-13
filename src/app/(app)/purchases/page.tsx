@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList, PackageCheck, Pencil, Plus, Printer, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,7 +42,7 @@ export default function PurchasesPage() {
   const { can } = useAuth();
   const router = useRouter();
   const t = useT();
-  const [tab, setTab] = useState<Tab>("grn");
+  const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState<PurchaseQuery>({ page: 1, pageSize: 25 });
   const [poQuery, setPoQuery] = useState<PurchaseOrderQuery>({
     page: 1,
@@ -50,12 +51,46 @@ export default function PurchasesPage() {
   });
   const [cancelling, setCancelling] = useState<PurchaseItemRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  // Pending POs ticked to receive together. They must share one supplier, so
+  // once one is picked, that supplier is locked and everyone else's checkbox
+  // is disabled until the selection is cleared.
+  const [selectedPoIds, setSelectedPoIds] = useState<Set<number>>(new Set());
+  const [lockedSupplierId, setLockedSupplierId] = useState<number | null>(null);
+  const [lockedSupplierName, setLockedSupplierName] = useState("");
 
   const list = usePurchaseItems(query);
   const pendingOrders = usePurchaseOrders(poQuery);
   const cancel = useCancelPurchase();
 
   const canReceive = can(Permissions.Purchase.Create);
+
+  // --- Multi-PO selection (Pending Orders tab): tick several POs of ONE
+  // supplier and receive them into a single GRN. -----------------------------
+  function clearPoSelection() {
+    setSelectedPoIds(new Set());
+    setLockedSupplierId(null);
+    setLockedSupplierName("");
+  }
+
+  function togglePoSelect(row: PurchaseOrderDto) {
+    const has = selectedPoIds.has(row.purchaseOrderId);
+    const next = new Set(selectedPoIds);
+    if (has) next.delete(row.purchaseOrderId);
+    else next.add(row.purchaseOrderId);
+    setSelectedPoIds(next);
+    if (next.size === 0) {
+      setLockedSupplierId(null);
+      setLockedSupplierName("");
+    } else if (!has && lockedSupplierId == null) {
+      setLockedSupplierId(row.supplierId);
+      setLockedSupplierName(row.supplierName);
+    }
+  }
+
+  function goToNewGrn() {
+    const ids = Array.from(selectedPoIds);
+    router.push(ids.length > 0 ? `/purchases/new?poIds=${ids.join(",")}` : "/purchases/new");
+  }
 
   // Item-wise: one row per GRN line. A 5-item receipt shows as 5 rows, each
   // carrying its GRN number; editing (draft) opens the whole receipt.
@@ -204,6 +239,24 @@ export default function PurchasesPage() {
 
   const poColumns: DataColumn<PurchaseOrderDto>[] = [
     {
+      key: "select",
+      header: "",
+      cell: (row) => {
+        const checked = selectedPoIds.has(row.purchaseOrderId);
+        // Once a supplier is in play, only that supplier's orders stay tickable.
+        const blocked =
+          !checked && lockedSupplierId != null && row.supplierId !== lockedSupplierId;
+        return (
+          <Checkbox
+            checked={checked}
+            disabled={!canReceive || blocked}
+            onCheckedChange={() => togglePoSelect(row)}
+            aria-label={t("grn.selectOrder", "Select order")}
+          />
+        );
+      },
+    },
+    {
       key: "number",
       header: t("po.colOrder"),
       sortable: true,
@@ -277,9 +330,9 @@ export default function PurchasesPage() {
         description={t("grn.desc")}
         actions={
           canReceive ? (
-            <Button variant="neutral" onClick={() => router.push("/purchases/new")}>
+            <Button variant="neutral" onClick={goToNewGrn}>
               <Plus className="mr-1.5 size-4" />
-              {t("grn.newGrn")}
+              {selectedPoIds.size > 0 ? `${t("grn.newGrn")} (${selectedPoIds.size})` : t("grn.newGrn")}
             </Button>
           ) : null
         }
@@ -296,7 +349,10 @@ export default function PurchasesPage() {
           <button
             key={id}
             type="button"
-            onClick={() => setTab(id)}
+            onClick={() => {
+              setTab(id);
+              if (id !== "pending") clearPoSelection();
+            }}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
               tab === id
@@ -309,6 +365,24 @@ export default function PurchasesPage() {
           </button>
         ))}
       </div>
+
+      {tab === "pending" && selectedPoIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
+          <span>
+            <strong>{selectedPoIds.size}</strong> {t("grn.ordersSelected", "orders selected")}
+            {lockedSupplierName ? ` · ${lockedSupplierName}` : ""}
+          </span>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={clearPoSelection}>
+              {t("common.clear", "Clear")}
+            </Button>
+            <Button size="sm" variant="success" onClick={goToNewGrn}>
+              <PackageCheck className="mr-1.5 size-4" />
+              {t("grn.createGrn", "Create GRN")} ({selectedPoIds.size})
+            </Button>
+          </div>
+        </div>
+      )}
 
       {tab === "pending" ? (
         <DataTable
