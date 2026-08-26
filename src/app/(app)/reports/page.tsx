@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +21,9 @@ import {
   useBatchStock,
   useExpiryReport,
   useGstReport,
+  useExpenseSummary,
+  useCashBook,
+  useReceivablesAging,
   useProfitReport,
   usePurchaseReport,
   useSalesByCustomer,
@@ -30,7 +33,9 @@ import {
 } from "@/features/transactions/hooks";
 import type {
   BatchStockView,
+  CashBookRow,
   CustomerSalesRow,
+  ReceivablesAgingRow,
   ItemStockView,
   ProfitReportRow,
   PurchaseReportRow,
@@ -59,12 +64,20 @@ function usePagedArray<T>(rows: T[]) {
 export default function ReportsPage() {
   const { can } = useAuth();
   const t = useT();
+  const [tab, setTab] = useState("stock");
+
+  // Deep-link: /reports?tab=expiry lands on that tab (dashboard expiry alert
+  // links here). Read after mount to avoid forcing a Suspense boundary.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested) setTab(requested);
+  }, []);
 
   return (
     <>
       <PageHeader title={t("rep.title")} description={t("rep.desc")} />
 
-      <Tabs defaultValue="stock">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="h-auto flex-wrap">
           {can(Permissions.Report.Stock) && <TabsTrigger value="stock">{t("rep.tabStock")}</TabsTrigger>}
           {can(Permissions.Report.Stock) && <TabsTrigger value="warehouse">{t("rep.tabWarehouse")}</TabsTrigger>}
@@ -73,6 +86,8 @@ export default function ReportsPage() {
           {can(Permissions.Report.Sales) && <TabsTrigger value="custSales">{t("rep.tabCustomerSales")}</TabsTrigger>}
           {can(Permissions.Report.Purchase) && <TabsTrigger value="purchase">{t("rep.tabPurchase")}</TabsTrigger>}
           {can(Permissions.Report.Profit) && <TabsTrigger value="profit">{t("rep.tabProfit")}</TabsTrigger>}
+          {can(Permissions.Report.Profit) && <TabsTrigger value="cashbook">{t("rep.tabCashBook", "Cash Book")}</TabsTrigger>}
+          {can(Permissions.Report.Party) && <TabsTrigger value="aging">{t("rep.tabAging", "Udhar Aging")}</TabsTrigger>}
           {can(Permissions.Report.Gst) && <TabsTrigger value="gst">{t("rep.tabGst")}</TabsTrigger>}
         </TabsList>
 
@@ -83,6 +98,8 @@ export default function ReportsPage() {
         <TabsContent value="custSales" className="mt-4"><CustomerSalesTab /></TabsContent>
         <TabsContent value="purchase" className="mt-4"><PurchaseTab /></TabsContent>
         <TabsContent value="profit" className="mt-4"><ProfitTab /></TabsContent>
+        <TabsContent value="cashbook" className="mt-4"><CashBookTab /></TabsContent>
+        <TabsContent value="aging" className="mt-4"><AgingTab /></TabsContent>
         <TabsContent value="gst" className="mt-4"><GstTab /></TabsContent>
       </Tabs>
     </>
@@ -721,6 +738,7 @@ function ProfitTab() {
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(toIsoDate(new Date()));
   const report = useProfitReport(from, to, can(Permissions.Report.Profit));
+  const expenses = useExpenseSummary(from, to, can(Permissions.Report.Profit));
   const { query, setQuery, result } = usePagedArray(report.data ?? []);
 
   const columns: DataColumn<ProfitReportRow>[] = [
@@ -748,21 +766,35 @@ function ProfitTab() {
     { sales: 0, cost: 0, profit: 0 },
   );
 
+  const totalExpenses = expenses.data?.totalExpenses ?? 0;
+  const netProfit = totals.profit - totalExpenses;
+
   return (
     <>
       <DateRange from={from} to={to} onChange={(f, d) => { setFrom(f); setTo(d); }} />
       <SummaryStrip
         items={[
           { label: t("rep.sales"), value: formatCurrency(totals.sales) },
-          { label: t("rep.cost"), value: formatCurrency(totals.cost) },
           { label: t("rep.grossProfit"), value: formatCurrency(totals.profit) },
+          { label: t("exp.title", "Expenses"), value: formatCurrency(totalExpenses) },
+          { label: t("rep.netProfit", "Net Profit"), value: formatCurrency(netProfit) },
           {
             label: t("rep.margin"),
             value: totals.sales > 0 ? formatPercent((totals.profit / totals.sales) * 100) : "-",
           },
         ]}
-        isLoading={report.isLoading}
+        isLoading={report.isLoading || expenses.isLoading}
       />
+      {totalExpenses > 0 && (
+        <div className="-mt-1 mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {(expenses.data?.byCategory ?? []).map((c) => (
+            <span key={c.expenseCategoryId}>
+              {c.categoryName}:{" "}
+              <span className="font-medium text-foreground">{formatCurrency(c.amount)}</span>
+            </span>
+          ))}
+        </div>
+      )}
       <DataTable
         columns={columns}
         result={result}
@@ -873,6 +905,116 @@ function GstTable({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/* -------------------------------- cash book ------------------------------- */
+
+function CashBookTab() {
+  const t = useT();
+  const [from, setFrom] = useState(monthStart());
+  const [to, setTo] = useState(toIsoDate(new Date()));
+  const report = useCashBook(from, to);
+  const data = report.data;
+  const { query, setQuery, result } = usePagedArray<CashBookRow>(data?.rows ?? []);
+
+  const columns: DataColumn<CashBookRow>[] = [
+    { key: "date", header: t("common.date"), cell: (r) => formatDate(r.date), exportValue: (r) => formatDate(r.date) },
+    { key: "voucher", header: t("cb.voucher", "Voucher"), cell: (r) => <span className="font-medium">{r.voucherNumber}</span>, exportValue: (r) => r.voucherNumber },
+    { key: "type", header: t("cb.type", "Type"), hideBelow: "sm", cell: (r) => r.type, exportValue: (r) => r.type },
+    { key: "particulars", header: t("cb.particulars", "Particulars"), cell: (r) => <div className="max-w-[220px] truncate">{r.particulars || "-"}</div>, exportValue: (r) => r.particulars },
+    { key: "in", header: t("cb.cashIn", "Cash In"), align: "right", cell: (r) => (r.cashIn > 0 ? <span className="font-medium text-primary">{formatCurrency(r.cashIn)}</span> : <span className="text-muted-foreground">-</span>), exportValue: (r) => r.cashIn },
+    { key: "out", header: t("cb.cashOut", "Cash Out"), align: "right", cell: (r) => (r.cashOut > 0 ? <span className="font-medium text-destructive">{formatCurrency(r.cashOut)}</span> : <span className="text-muted-foreground">-</span>), exportValue: (r) => r.cashOut },
+    { key: "balance", header: t("cb.balance", "Balance"), align: "right", hideBelow: "md", cell: (r) => <span className="tabular">{formatCurrency(r.runningBalance)}</span>, exportValue: (r) => r.runningBalance },
+  ];
+
+  return (
+    <>
+      <DateRange from={from} to={to} onChange={(f, d) => { setFrom(f); setTo(d); }} />
+      <SummaryStrip
+        items={[
+          { label: t("cb.opening", "Opening Cash"), value: formatCurrency(data?.openingBalance ?? 0) },
+          { label: t("cb.totalIn", "Cash In"), value: formatCurrency(data?.totalIn ?? 0) },
+          { label: t("cb.totalOut", "Cash Out"), value: formatCurrency(data?.totalOut ?? 0) },
+          { label: t("cb.closing", "Closing Cash"), value: formatCurrency(data?.closingBalance ?? 0) },
+        ]}
+        isLoading={report.isLoading}
+      />
+      <DataTable
+        columns={columns}
+        result={result}
+        isLoading={report.isLoading}
+        query={query}
+        onQueryChange={(next) => setQuery({ page: next.page ?? 1, pageSize: next.pageSize ?? 25 })}
+        getRowId={(row) => `${row.date}-${row.type}-${row.voucherNumber}`}
+        emptyMessage={t("cb.empty", "No cash movement in this period.")}
+        exportFileName="cash-book"
+        exportTitle={`Cash Book ${formatDate(from)} - ${formatDate(to)}`}
+      />
+    </>
+  );
+}
+
+/* ----------------------------- receivables aging -------------------------- */
+
+function AgingTab() {
+  const t = useT();
+  const report = useReceivablesAging();
+  const { query, setQuery, result } = usePagedArray<ReceivablesAgingRow>(report.data ?? []);
+
+  const columns: DataColumn<ReceivablesAgingRow>[] = [
+    {
+      key: "customer",
+      header: t("rep.customer"),
+      sortable: true,
+      cell: (r) => (
+        <div className="min-w-0 max-w-[240px]">
+          <div className="truncate font-medium">{r.customerName}</div>
+          {r.village && <div className="truncate text-xs text-muted-foreground">{r.village}</div>}
+        </div>
+      ),
+      exportValue: (r) => r.customerName,
+    },
+    { key: "current", header: t("age.current", "0-30 days"), align: "right", cell: (r) => (r.current > 0 ? formatCurrency(r.current) : "-"), exportValue: (r) => r.current },
+    { key: "d60", header: t("age.d60", "31-60"), align: "right", hideBelow: "sm", cell: (r) => (r.days31To60 > 0 ? formatCurrency(r.days31To60) : "-"), exportValue: (r) => r.days31To60 },
+    { key: "d90", header: t("age.d90", "61-90"), align: "right", hideBelow: "sm", cell: (r) => (r.days61To90 > 0 ? formatCurrency(r.days61To90) : "-"), exportValue: (r) => r.days61To90 },
+    { key: "d90plus", header: t("age.d90plus", "90+ days"), align: "right", cell: (r) => (r.days90Plus > 0 ? <span className="font-medium text-destructive">{formatCurrency(r.days90Plus)}</span> : "-"), exportValue: (r) => r.days90Plus },
+    { key: "total", header: t("age.total", "Total Due"), align: "right", sortable: true, cell: (r) => <span className="font-semibold">{formatCurrency(r.total)}</span>, exportValue: (r) => r.total },
+  ];
+
+  const totals = (report.data ?? []).reduce(
+    (acc, r) => ({
+      current: acc.current + r.current,
+      d60: acc.d60 + r.days31To60,
+      d90plus: acc.d90plus + r.days90Plus,
+      total: acc.total + r.total,
+    }),
+    { current: 0, d60: 0, d90plus: 0, total: 0 },
+  );
+
+  return (
+    <>
+      <SummaryStrip
+        items={[
+          { label: t("age.current", "0-30 days"), value: formatCurrency(totals.current) },
+          { label: t("age.d60", "31-60 days"), value: formatCurrency(totals.d60) },
+          { label: t("age.d90plus", "90+ days"), value: formatCurrency(totals.d90plus) },
+          { label: t("age.totalDue", "Total Udhar"), value: formatCurrency(totals.total) },
+        ]}
+        isLoading={report.isLoading}
+      />
+      <DataTable
+        columns={columns}
+        result={result}
+        isLoading={report.isLoading}
+        query={query}
+        onQueryChange={(next) => setQuery({ page: next.page ?? 1, pageSize: next.pageSize ?? 25 })}
+        getRowId={(row) => row.customerId}
+        emptyMessage={t("age.empty", "No outstanding udhar - all cleared!")}
+        exportFileName="receivables-aging"
+        exportTitle="Receivables Aging"
+      />
+    </>
   );
 }
 

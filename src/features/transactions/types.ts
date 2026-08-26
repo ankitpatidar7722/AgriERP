@@ -164,6 +164,79 @@ export interface SaleQuery extends QueryParameters {
   unpaidOnly?: boolean | null;
 }
 
+/* ----------------------------- sales return ----------------------------- */
+
+/** How the customer is squared up for a return. */
+export type SalesReturnRefundMode = "Adjust" | "Cash" | "Bank" | "Replacement";
+
+export interface SalesReturnLineRequest {
+  batchId: number;
+  /** The original sale line, so cost and item come from what actually went out. */
+  salesDetailId?: number | null;
+  quantity: number;
+  rate: number;
+  discountAmount: number;
+  /** False for expired/damaged goods: they are credited but do NOT go back on the shelf. */
+  isSaleable: boolean;
+  returnReason?: string | null;
+}
+
+export interface SaveSalesReturnRequest {
+  returnDate: string;
+  customerId?: number | null;
+  saleId?: number | null;
+  locationId?: number | null;
+  returnReason?: string | null;
+  refundMode: SalesReturnRefundMode;
+  refundedAmount: number;
+  remarks?: string | null;
+  lines: SalesReturnLineRequest[];
+}
+
+export interface SalesReturnLineDto {
+  salesReturnDetailId: number;
+  itemId: number;
+  itemName: string;
+  batchId: number;
+  batchNumber: string;
+  quantity: number;
+  rate: number;
+  taxableAmount: number;
+  gstPercent: number;
+  lineTotal: number;
+  isSaleable: boolean;
+  returnReason?: string | null;
+}
+
+export interface SalesReturnDto {
+  salesReturnId: number;
+  returnNumber: string;
+  returnDate: string;
+  customerId?: number | null;
+  customerName: string;
+  saleId?: number | null;
+  invoiceNumber?: string | null;
+  creditNoteNumber?: string | null;
+  returnReason?: string | null;
+  taxableAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  grandTotal: number;
+  refundMode: SalesReturnRefundMode;
+  refundedAmount: number;
+  status: DocumentStatus;
+  postedAt?: string | null;
+  lines: SalesReturnLineDto[];
+}
+
+export interface SalesReturnQuery extends QueryParameters {
+  customerId?: number | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  status?: DocumentStatus | null;
+}
+
 export interface ShopHeaderDto {
   shopName: string;
   gstNumber?: string | null;
@@ -829,6 +902,89 @@ export interface PaymentQuery extends QueryParameters {
   paymentType?: PaymentDirection | null;
   fromDate?: string | null;
   toDate?: string | null;
+}
+
+/* -------------------------------- expenses ------------------------------- */
+
+export interface ExpenseDto {
+  expenseId: number;
+  voucherNumber: string;
+  expenseDate: string;
+  expenseCategoryId: number;
+  expenseCategoryName: string;
+  paymentModeId: number;
+  paymentModeName: string;
+  paidTo?: string | null;
+  amount: number;
+  gstAmount: number;
+  totalAmount: number;
+  referenceNumber?: string | null;
+  billNumber?: string | null;
+  description?: string | null;
+  status: string;
+}
+
+export interface SaveExpenseRequest {
+  expenseDate: string;
+  expenseCategoryId: number;
+  paymentModeId: number;
+  paidTo?: string | null;
+  amount: number;
+  gstAmount: number;
+  referenceNumber?: string | null;
+  billNumber?: string | null;
+  description?: string | null;
+}
+
+export interface ExpenseQuery extends QueryParameters {
+  expenseCategoryId?: number | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
+export interface ExpenseCategoryTotal {
+  expenseCategoryId: number;
+  categoryName: string;
+  amount: number;
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  byCategory: ExpenseCategoryTotal[];
+}
+
+/* ------------------------------- cash book ------------------------------- */
+
+export interface CashBookRow {
+  date: string;
+  voucherNumber: string;
+  type: string;
+  particulars: string;
+  cashIn: number;
+  cashOut: number;
+  runningBalance: number;
+}
+
+export interface CashBook {
+  openingBalance: number;
+  totalIn: number;
+  totalOut: number;
+  closingBalance: number;
+  rows: CashBookRow[];
+}
+
+/* ---------------------------- receivables aging --------------------------- */
+
+export interface ReceivablesAgingRow {
+  customerId: number;
+  customerName: string;
+  village?: string | null;
+  current: number;
+  days31To60: number;
+  days61To90: number;
+  days90Plus: number;
+  total: number;
+  oldestDays: number;
 }
 
 /* -------------------------------- reports -------------------------------- */

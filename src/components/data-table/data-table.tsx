@@ -1,8 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { DataGrid } from "indas-ui";
+import { DataGrid, exportToCSV, exportToExcel, exportToPDF } from "indas-ui";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { PagedResult, QueryParameters } from "@/types/api";
 
@@ -93,6 +101,7 @@ export function DataTable<T>({
   getRowId,
   filters,
   onRowClick,
+  exportFileName,
 }: DataTableProps<T>) {
   // Pull the whole set once. The grid pages it in the browser, so a 25-row
   // server page would leave its pager stuck at "1-25 of 25".
@@ -161,6 +170,47 @@ export function DataTable<T>({
     [onRowClick, rowByKey],
   );
 
+  // Export uses each column's own exportValue + header, NOT the raw row objects.
+  // The grid's built-in export dumps the underlying DTO (ItemId, ItemSubGroupId
+  // and every other field), so it is turned off below and replaced with this,
+  // which yields exactly the values and headers the operator sees on screen.
+  const exportColumns = useMemo(() => columns.filter((c) => c.exportValue), [columns]);
+
+  const handleExport = useCallback(
+    (format: "excel" | "csv" | "pdf") => {
+      const data = rows.map((row) => {
+        const record: Record<string, string | number> = {};
+        for (const col of exportColumns) {
+          const label = col.header.trim() || col.key;
+          record[label] = col.exportValue!(row) ?? "";
+        }
+        return record;
+      });
+      const name = exportFileName ?? "export";
+      if (format === "excel") void exportToExcel(data, name).catch(() => {});
+      else if (format === "csv") exportToCSV(data, name);
+      else exportToPDF(data, name);
+    },
+    [rows, exportColumns, exportFileName],
+  );
+
+  const exportMenu =
+    exportColumns.length > 0 ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" disabled={rows.length === 0}>
+            <Download className="mr-1.5 size-4" />
+            Export
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleExport("excel")}>Excel</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleExport("csv")}>CSV</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handleExport("pdf")}>PDF</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : undefined;
+
   return (
     <div onClick={onRowClick ? handleClick : undefined}>
       <DataGrid<T>
@@ -175,7 +225,13 @@ export function DataTable<T>({
         enableSorting
         enableFiltering
         enableColumnVisibility
-        enableExport
+        // Off: the grid's own export serialises the raw DTO rows (ids and all).
+        // Replaced by the column-aware `exportMenu` in headerActionsRight below.
+        enableExport={false}
+        // Off: the grid/chart/cards "visualization" toggle reads plain values by
+        // column id and ignores our custom cell renderers, so its Card view shows
+        // empty ("—") for every screen. We only support the table view.
+        enableVisualization={false}
         // Off deliberately: no screen uses multi-select, and with selection off
         // the grid's own single-click handling is inert - it never competes
         // with the wrapper's click that navigates to the detail page.
@@ -185,6 +241,7 @@ export function DataTable<T>({
         // Wrap the filter controls so several fixed-width Selects/date inputs
         // stack across rows on a phone instead of overflowing the header.
         headerActions={filters ? <div className="flex flex-wrap items-center gap-2">{filters}</div> : undefined}
+        headerActionsRight={exportMenu}
       />
     </div>
   );

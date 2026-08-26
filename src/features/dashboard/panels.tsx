@@ -5,13 +5,14 @@ import {
   AlertTriangle, CalendarClock, HandCoins, IndianRupee, Package, PackageX,
   Receipt, ShoppingCart, TrendingUp, Truck, Users, Warehouse,
 } from "lucide-react";
+import Link from "next/link";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useDashboard } from "@/features/dashboard/hooks";
 import { useReceivablesSummary } from "@/features/masters/hooks";
-import { useSalesByCustomer, usePurchaseBySupplier } from "@/features/transactions/hooks";
+import { useExpiryReport, useSalesByCustomer, usePurchaseBySupplier } from "@/features/transactions/hooks";
 import type { Dashboard } from "@/features/dashboard/types";
 import type { ReceivablesSummaryDto } from "@/features/masters/types";
 import type { CustomerSalesRow, SupplierPurchaseRow } from "@/features/transactions/types";
@@ -21,7 +22,7 @@ import {
 } from "@/features/dashboard/kit";
 import { useT } from "@/features/i18n/provider";
 import { DashboardFilter, defaultRange, type DashRange } from "@/features/dashboard/date-filter";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatQuantity } from "@/lib/format";
 
 function compactINR(n: number): string {
   const abs = Math.abs(n);
@@ -85,14 +86,85 @@ function DashHeader({
 type Tr = (key: string, fallback?: string) => string;
 
 function ExpiredAlert({ data, t }: { data?: Dashboard; t: Tr }) {
-  if ((data?.alerts?.expiredBatchCount ?? 0) === 0) return null;
+  const expired = data?.alerts?.expiredBatchCount ?? 0;
+  const nearExpiry = data?.alerts?.nearExpiryBatchCount ?? 0;
+  // Soonest-expiring batches (within ~60 days) for an at-a-glance action list.
+  const list = useExpiryReport("near-expiry", 60);
+  if (expired === 0 && nearExpiry === 0) return null;
+
+  const preview = (list.data ?? []).slice(0, 6);
+  const now = Date.now();
+  const daysLeft = (d?: string | null) =>
+    d ? Math.ceil((new Date(d).getTime() - now) / 86_400_000) : null;
+
   return (
-    <div className="flex gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
-      <p>
-        <strong>{data!.alerts.expiredBatchCount} {t("dash.expiredBannerA")}</strong>{" "}
-        {t("dash.expiredBannerB")} {formatCurrency(data!.alerts.expiredStockValue)}.
-      </p>
+    <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.06] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <CalendarClock className="mt-0.5 size-5 shrink-0 text-amber-600" aria-hidden />
+          <div>
+            <p className="font-semibold">{t("dash.expiryAlert", "Expiry Alert")}</p>
+            <p className="text-sm text-muted-foreground">
+              {nearExpiry > 0 && (
+                <span>
+                  <strong className="text-amber-700 dark:text-amber-400">{nearExpiry}</strong>{" "}
+                  {t("dash.nearExpiry", "batch(es) expiring soon")}
+                </span>
+              )}
+              {nearExpiry > 0 && expired > 0 && <span> · </span>}
+              {expired > 0 && (
+                <span>
+                  <strong className="text-destructive">{expired}</strong>{" "}
+                  {t("dash.alreadyExpired", "already expired")} ({formatCurrency(data!.alerts.expiredStockValue)})
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+        <Link href="/reports?tab=expiry" className="shrink-0 text-sm font-medium text-primary hover:underline">
+          {t("dash.viewReport", "View report")} →
+        </Link>
+      </div>
+
+      {preview.length > 0 && (
+        <div className="mt-3 overflow-x-auto rounded-lg border bg-background/60">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">{t("dash.item", "Item")}</th>
+                <th className="px-3 py-2 font-medium">{t("dash.batch", "Batch")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("dash.qty", "Qty")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("dash.expiry", "Expiry")}</th>
+                <th className="px-3 py-2 text-right font-medium">{t("dash.daysLeft", "Days left")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.map((b) => {
+                const dl = daysLeft(b.expiryDate);
+                return (
+                  <tr key={b.batchId} className="border-b last:border-0">
+                    <td className="px-3 py-2">
+                      <div className="max-w-[200px] truncate font-medium">{b.itemName}</div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{b.batchNumber}</td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {formatQuantity(b.currentQty)} {b.unitCode}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular">
+                      {b.expiryDate ? formatDate(b.expiryDate) : "-"}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Badge variant={dl != null && dl <= 15 ? "destructive" : "secondary"} className="tabular">
+                        {dl != null ? `${dl}d` : "-"}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

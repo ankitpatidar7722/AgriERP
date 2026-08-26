@@ -5,8 +5,15 @@ import { toast } from "sonner";
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useT } from "@/features/i18n/provider";
 import { ApiError, type LookupDto, type PagedResult } from "@/types/api";
+import { createMasterHooks } from "@/features/masters/use-master-crud";
 import type {
   BatchStockView,
+  ExpenseDto,
+  ExpenseQuery,
+  ExpenseSummary,
+  CashBook,
+  ReceivablesAgingRow,
+  SaveExpenseRequest,
   GstReturnDto,
   InvoicePrintDto,
   OpenBillDto,
@@ -35,6 +42,9 @@ import type {
   SaleDto,
   SaleListDto,
   SaleQuery,
+  SalesReturnDto,
+  SalesReturnQuery,
+  SaveSalesReturnRequest,
   SalesOrderPrintDto,
   CustomerSalesRow,
   SalesReportRow,
@@ -108,6 +118,47 @@ export function usePaymentModes() {
     queryFn: () => apiGet<PaymentModeLookup[]>("/lookups/payment-modes"),
     // Six seeded rows that never change during a session.
     staleTime: Infinity,
+  });
+}
+
+/* -------------------------------- expenses ------------------------------- */
+
+/** Full CRUD for shop running costs; endpoints match ExpensesController. */
+export const expenseHooks = createMasterHooks<ExpenseDto, ExpenseDto, SaveExpenseRequest, ExpenseQuery>(
+  "expenses",
+  "Expense",
+);
+
+export function useExpenseCategories() {
+  return useQuery({
+    queryKey: ["lookups", "expense-categories"],
+    queryFn: () => apiGet<LookupDto[]>("/lookups/expense-categories"),
+    staleTime: Infinity,
+  });
+}
+
+/** Period expense totals (+ category breakdown) to turn gross profit into net. */
+export function useExpenseSummary(from: string, to: string, enabled = true) {
+  return useQuery({
+    queryKey: ["expenses", "summary", from, to],
+    queryFn: () => apiGet<ExpenseSummary>("/expenses/summary", { fromDate: from, toDate: to }),
+    enabled,
+  });
+}
+
+export function useCashBook(from: string, to: string, enabled = true) {
+  return useQuery({
+    queryKey: ["reports", "cash-book", from, to],
+    queryFn: () => apiGet<CashBook>("/reports/cash-book", { fromDate: from, toDate: to }),
+    enabled,
+  });
+}
+
+export function useReceivablesAging(enabled = true) {
+  return useQuery({
+    queryKey: ["reports", "receivables-aging"],
+    queryFn: () => apiGet<ReceivablesAgingRow[]>("/reports/receivables-aging"),
+    enabled,
   });
 }
 
@@ -198,6 +249,46 @@ export function useCancelSale() {
       apiPost<SaleDto>(`/sales/${id}/cancel`, { reason }),
     onSuccess: () => {
       toast.success(t("tmsg.invoiceCancelled"));
+      invalidateEverything(client);
+    },
+    onError: (error) => toast.error(describe(error), { duration: 7000 }),
+  });
+}
+
+/* ----------------------------- sales return ------------------------------ */
+
+export function useSalesReturns(query: SalesReturnQuery) {
+  return useQuery({
+    queryKey: ["sales-returns", "list", query],
+    queryFn: () => apiGet<PagedResult<SalesReturnDto>>("/sales/returns", query),
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useSalesReturn(id: number | null) {
+  return useQuery({
+    queryKey: ["sales-returns", "detail", id],
+    queryFn: () => apiGet<SalesReturnDto>(`/sales/returns/${id}`),
+    enabled: id != null && id > 0,
+  });
+}
+
+export function useCreateSalesReturn() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SaveSalesReturnRequest) => apiPost<SalesReturnDto>("/sales/returns", body),
+    onSuccess: () => invalidateEverything(client),
+    onError: (error) => toast.error(describe(error), { duration: 7000 }),
+  });
+}
+
+export function usePostSalesReturn() {
+  const client = useQueryClient();
+  const t = useT();
+  return useMutation({
+    mutationFn: (id: number) => apiPost<SalesReturnDto>(`/sales/returns/${id}/post`),
+    onSuccess: () => {
+      toast.success(t("tmsg.salesReturnPosted", "Sales return posted."));
       invalidateEverything(client);
     },
     onError: (error) => toast.error(describe(error), { duration: 7000 }),
