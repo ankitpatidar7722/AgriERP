@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { Package, Edit, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -624,7 +624,7 @@ export default function ItemsPage() {
         <div className="flex justify-end gap-1">
           {can(Permissions.Item.Edit) && (
             <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(row)} aria-label={`Edit ${row.itemName}`}>
-              <Pencil className="size-4" />
+              <Edit className="size-4" />
             </Button>
           )}
           {can(Permissions.Item.Delete) && (

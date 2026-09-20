@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, PackageCheck, Pencil, Plus, Printer, Trash2, Truck } from "lucide-react";
+import { ClipboardList, PackageCheck, Edit, Plus, Printer, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -205,7 +205,7 @@ export default function PurchasesPage() {
             aria-label={`Edit ${row.purchaseNumber}`}
             title={t("common.edit", "Edit")}
           >
-            <Pencil className="size-4" />
+            <Edit className="size-4" />
           </Button>
           <Button
             variant="ghost"

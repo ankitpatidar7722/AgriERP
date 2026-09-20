@@ -1,5 +1,6 @@
 "use client";
 
+import { useDevice } from "indas-ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "@/features/i18n/provider";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -33,11 +34,85 @@ export function LedgerTable({
   isLoading?: boolean;
 }) {
   const t = useT();
+  const { isMobile } = useDevice();
   if (isLoading && !data) return <Skeleton className="h-64 w-full rounded-lg" />;
   if (!data) return null;
 
   const bal = (n: number) =>
     n === 0 ? "0.00" : `${formatCurrency(Math.abs(n))} ${n < 0 ? "CR" : "DR"}`;
+
+  // Phone: the 8-column ledger is unreadable, so show a simple list — an opening
+  // balance strip, one clean card per voucher (date + type/no, narration, the
+  // debit/credit amount and the running balance), then a closing summary.
+  if (isMobile) {
+    return (
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2.5 text-sm">
+          <span className="font-medium">
+            {t("ledger.openingBalance")}
+            {data.fromDate ? ` (${t("ledger.asOn")} ${formatDate(data.fromDate)})` : ""}
+          </span>
+          <span className="tabular font-semibold">{bal(data.openingBalance)}</span>
+        </div>
+
+        {data.rows.length === 0 ? (
+          <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            {t("ledger.noTx")}
+          </div>
+        ) : (
+          data.rows.map((r) => (
+            <div key={r.seq} className="rounded-lg border bg-card p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium leading-tight">{r.voucherType}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(r.transactionDate)}
+                    {r.voucherNumber ? ` · ${r.voucherNumber}` : ""}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  {r.debit > 0 && (
+                    <p className="tabular font-medium">
+                      {formatCurrency(r.debit)}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">{t("ledger.debit")}</span>
+                    </p>
+                  )}
+                  {r.credit > 0 && (
+                    <p className="tabular font-medium">
+                      {formatCurrency(r.credit)}{" "}
+                      <span className="text-xs font-normal text-muted-foreground">{t("ledger.credit")}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              {r.narration && (
+                <p className="mt-1.5 truncate text-xs text-muted-foreground">{r.narration}</p>
+              )}
+              <div className="mt-2 flex items-center justify-between border-t pt-2 text-xs">
+                <span className="text-muted-foreground">{t("ledger.balance")}</span>
+                <span className="tabular font-semibold">{bal(r.runningBalance)}</span>
+              </div>
+            </div>
+          ))
+        )}
+
+        <div className="rounded-lg border-2 bg-muted/50 p-3">
+          <div className="flex items-center justify-between font-semibold">
+            <span>{t("ledger.closingBalance")}</span>
+            <span className="tabular">{bal(data.closingBalance)}</span>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {t("ledger.debit")}: <span className="tabular">{formatCurrency(data.totalDebit)}</span>
+            </span>
+            <span>
+              {t("ledger.credit")}: <span className="tabular">{formatCurrency(data.totalCredit)}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto rounded-lg border">

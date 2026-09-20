@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { DataGrid, exportToCSV, exportToExcel, exportToPDF } from "indas-ui";
+import { exportToCSV, exportToExcel, exportToPDF } from "indas-ui";
+import { DataGrid } from "@/components/datagrid";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,26 +19,28 @@ import type { PagedResult, QueryParameters } from "@/types/api";
  * The list grid for every master and register screen.
  *
  * The public shape - DataColumn and the DataTable props - is unchanged, so the
- * eleven screens that use it were converted without edits. What changed is the
- * engine underneath: it now renders the indas-ui DataGrid (search, sort,
- * filter, column chooser, export, pagination) instead of a hand-rolled table.
+ * ~17 screens that use it need no edits. What changed underneath: it now renders
+ * the OWNED DataGrid (`@/components/datagrid`, the same one Indus 360's /users
+ * uses) instead of the stock indas-ui grid. The owned grid brings a working
+ * mobile CARD VIEW - on a phone it auto-switches every list to tappable cards
+ * that render our real column cells (badges, name+subtitle, etc.), and a card tap
+ * fires onRowClick, i.e. opens the same edit/detail the desktop row-click does.
+ * Search, sort, filter, column chooser, export and pagination all come along.
  *
  * SERVER PAGING BECAME CLIENT PAGING. The old table showed one server page and
- * asked the server to sort and search. The DataGrid does all of that in the
- * browser over the whole set, so this component fetches everything up front
- * (the API caps a page at 200 rows, which covers a shop's masters and a
- * filtered register) and lets the grid take over. A screen's own filter
- * controls still round-trip to the server through onQueryChange; the grid then
- * searches and sorts within whatever came back.
+ * asked the server to sort and search. The grid does all of that in the browser
+ * over the whole set, so this component fetches everything up front (the API caps
+ * a page at 200 rows, which covers a shop's masters and a filtered register) and
+ * lets the grid take over. A screen's own filter controls still round-trip to the
+ * server through onQueryChange; the grid then searches and sorts within the result.
  *
- * SINGLE-CLICK TO OPEN. The grid's own convention is desktop-style: a single
- * click selects a row and only a double click fires the consumer's onRowClick.
- * Every register in this app opened its record on a single click before the
- * grid landed, so that behaviour is preserved here with a delegated click
- * handler on the wrapper: each cell carries the row's key, the handler reads it
- * and calls onRowClick. Row selection is turned off, so the grid's own click
- * handling is inert and never competes. Clicks on a control inside a cell (an
- * action button, a link) are left to that control.
+ * SINGLE-CLICK TO OPEN. The grid opens a record on double-click (desktop) / tap
+ * (mobile card). Every register here opened on a single click before the grid
+ * landed, so that is preserved with a delegated click handler on the wrapper: each
+ * cell carries the row's key, the handler reads it and calls onRowClick. Grid row
+ * selection is off, so its own single-click is inert and never competes; on the
+ * mobile card view there are no keyed table cells, so the wrapper handler is inert
+ * there and the card's own tap opens the record.
  */
 
 export interface DataColumn<T> {
@@ -150,12 +153,13 @@ export function DataTable<T>({
     [columns],
   );
 
-  // The grid fires the consumer's onRowClick on double-click; this keeps the
-  // app's single-click-to-open behaviour. It finds the clicked row's <tr> and
-  // reads the key off any of its cells - the key sits on a div inside each td,
-  // so reaching up from the click target would miss when the click lands on the
-  // cell's padding. Clicks that belong to a control inside the row are left
-  // alone, as are header and spacer rows, which carry no keyed cell.
+  // The grid opens a record on double-click; this keeps the app's single-click-to
+  // -open behaviour. It finds the clicked row's <tr> and reads the key off any of
+  // its cells - the key sits on a div inside each td, so reaching up from the click
+  // target would miss when the click lands on the cell's padding. Clicks that
+  // belong to a control inside the row are left alone, as are header and spacer
+  // rows, which carry no keyed cell. On the mobile card view there are no keyed
+  // table cells, so this finds nothing and the card's own tap opens the record.
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       if (!onRowClick) return;
@@ -217,8 +221,8 @@ export function DataTable<T>({
         data={rows}
         columns={gridColumns}
         getRowId={(row) => String(getRowId(row))}
-        // Also wired to the grid's native double-click, so both gestures open a
-        // record - single click through the wrapper above, double click here.
+        // Fires on double-click (desktop) and on a single tap in the mobile card
+        // view; the wrapper above adds desktop single-click-to-open.
         onRowClick={onRowClick}
         loading={isLoading}
         enableSearch
@@ -228,20 +232,22 @@ export function DataTable<T>({
         // Off: the grid's own export serialises the raw DTO rows (ids and all).
         // Replaced by the column-aware `exportMenu` in headerActionsRight below.
         enableExport={false}
-        // Off: the grid/chart/cards "visualization" toggle reads plain values by
-        // column id and ignores our custom cell renderers, so its Card view shows
-        // empty ("—") for every screen. We only support the table view.
+        // Off: no manual grid/cards/chart toggle. The grid still auto-switches to
+        // cards on a phone (that behaviour is independent of this flag).
         enableVisualization={false}
-        // Off deliberately: no screen uses multi-select, and with selection off
-        // the grid's own single-click handling is inert - it never competes
-        // with the wrapper's click that navigates to the detail page.
+        // Off deliberately: no screen uses multi-select. Row-click selection off
+        // too, so the grid's single-click is inert and never competes with the
+        // wrapper's click that opens the record.
         enableRowSelection={false}
-        pageSize={25}
+        enableRowClickSelection={false}
+        enablePagination
+        paginationPageSize={25}
         stickyHeader
         // Wrap the filter controls so several fixed-width Selects/date inputs
         // stack across rows on a phone instead of overflowing the header.
         headerActions={filters ? <div className="flex flex-wrap items-center gap-2">{filters}</div> : undefined}
-        headerActionsRight={exportMenu}
+        // Export is hidden on phones (bulk export isn't practical there) — shows from md up.
+        headerActionsRight={exportMenu ? <div className="hidden md:block">{exportMenu}</div> : undefined}
       />
     </div>
   );

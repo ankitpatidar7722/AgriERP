@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Plus, Save, Trash2 } from "lucide-react";
+import { toast } from "@/lib/ag-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -352,6 +352,7 @@ export function VerificationTab({ canAdjust }: { canAdjust: boolean }) {
         <div className="mb-1.5 flex items-center justify-between">
           <p className="text-sm font-medium">{t("verify.addedLines")}</p>
           <Button variant="success" disabled={lines.length === 0 || !canAdjust || create.isPending || post.isPending} onClick={save}>
+            <Save className="mr-1.5 size-4" />
             {t("common.save")}
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -182,7 +182,7 @@ export default function ExpensesPage() {
         canWrite ? (
           <div className="flex justify-end gap-1">
             <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(row)} aria-label="Edit expense">
-              <Pencil className="size-4" />
+              <Edit className="size-4" />
             </Button>
             <Button
               variant="ghost"

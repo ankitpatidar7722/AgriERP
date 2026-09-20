@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RefreshCw, ScanLine, Trash2, UserPlus } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, ScanLine, Trash2, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
+import { useDevice } from "indas-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +62,7 @@ export default function NewSaleOrderPage() {
   const router = useRouter();
   const { can } = useAuth();
   const t = useT();
+  const { isMobile } = useDevice();
 
   const [invoiceDate, setInvoiceDate] = useState(toIsoDate(new Date()));
   const [saleType, setSaleType] = useState<SaleType>("Retail");
@@ -527,7 +529,121 @@ export default function NewSaleOrderPage() {
               </form>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border">
+            {isMobile ? (
+              lines.length === 0 ? (
+                <div className="flex h-28 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+                  {t("bill.emptyItemsHint")}
+                </div>
+              ) : (
+                /* Phone: each bill line as a stacked card — the wide table would
+                   need horizontal scrolling and hide most columns. */
+                <div className="space-y-3">
+                  {lines.map((line, index) => {
+                    const lineGross = round2(line.quantity * line.rate);
+                    const lineNet = round2(lineGross - (lineGross * line.discountPercent) / 100);
+                    const belowMin =
+                      line.item.minSellingRate > 0 && line.rate < line.item.minSellingRate;
+                    const overStock = line.quantity + line.freeQuantity > line.item.currentStock;
+                    return (
+                      <div key={line.key} className="rounded-lg border bg-card p-3 shadow-sm">
+                        <div className="mb-2.5 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium leading-tight">
+                              <span className="text-muted-foreground">#{index + 1} </span>
+                              {line.item.name}
+                            </p>
+                            <div className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                              <span>
+                                {formatQuantity(line.item.currentStock)} {line.item.unitCode} {t("bill.inStock")}
+                              </span>
+                              {belowMin && (
+                                <span className="text-destructive">
+                                  {t("bill.belowMin")} {formatCurrency(line.item.minSellingRate)}
+                                </span>
+                              )}
+                              {overStock && <span className="text-destructive">{t("bill.exceedsStock")}</span>}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 shrink-0 text-destructive hover:text-destructive"
+                            onClick={() => removeLine(line.key)}
+                            aria-label={`Remove ${line.item.name}`}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-muted-foreground">
+                              {t("bill.quantity")} ({line.item.unitCode})
+                            </span>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.001"
+                              inputMode="decimal"
+                              value={line.quantity}
+                              onChange={(event) =>
+                                updateLine(line.key, { quantity: Number(event.target.value) })
+                              }
+                              className="h-9 text-right tabular"
+                              aria-label={`Quantity for ${line.item.name}`}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-muted-foreground">{t("sale.rate")}</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              inputMode="decimal"
+                              value={line.rate}
+                              onChange={(event) =>
+                                updateLine(line.key, { rate: Number(event.target.value) })
+                              }
+                              className="h-9 text-right tabular"
+                              aria-label={`Rate for ${line.item.name}`}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-muted-foreground">{t("bill.discPercent")}</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              inputMode="decimal"
+                              value={line.discountPercent}
+                              disabled={!canDiscount}
+                              onChange={(event) =>
+                                updateLine(line.key, { discountPercent: Number(event.target.value) })
+                              }
+                              className="h-9 text-right tabular"
+                              aria-label={`Discount for ${line.item.name}`}
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-muted-foreground">{t("sale.gst")}</span>
+                            <div className="flex h-9 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium">
+                              {line.item.gstPercent}%
+                            </div>
+                          </label>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between border-t pt-2.5">
+                          <span className="text-sm text-muted-foreground">{t("bill.totalAmount")}</span>
+                          <span className="tabular text-base font-semibold">{formatCurrency(lineNet)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted text-xs text-muted-foreground">
                     <tr>
@@ -647,6 +763,7 @@ export default function NewSaleOrderPage() {
                   </tbody>
                 </table>
               </div>
+            )}
           </CardContent>
         </Card>
 
@@ -772,7 +889,7 @@ export default function NewSaleOrderPage() {
           </Button>
           {can(Permissions.Sales.Post) && (
             <Button variant="success" onClick={() => void save(true)} disabled={isBusy}>
-              {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />}
               {t("bill.savePost")}
             </Button>
           )}

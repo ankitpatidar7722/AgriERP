@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDevice } from "indas-ui";
 import { Plus, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +58,7 @@ interface Props {
 export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }: Props) {
   const t = useT();
   const router = useRouter();
+  const { isMobile } = useDevice();
   const create = useCreatePurchaseRequisition();
   const update = useUpdatePurchaseRequisition();
 
@@ -241,6 +243,106 @@ export function PurchaseRequisitionModal({ open, onOpenChange, seed, editModel }
         {lines.length === 0 ? (
           <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
             {t("reqm.emptyHint")}
+          </div>
+        ) : isMobile ? (
+          /* Phone: each line as a stacked card — the wide table would need
+             horizontal scrolling and hide most of its columns. */
+          <div className="space-y-3">
+            {lines.map((line, index) => (
+              <div key={line.key} className="rounded-lg border bg-card p-3 shadow-sm">
+                <div className="mb-2.5 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                    <p className="font-medium leading-tight">{line.itemName}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removeLine(line.key)}
+                    aria-label={`Remove ${line.itemName}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">{t("reqm.noOfPacks")}</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="1"
+                      inputMode="numeric"
+                      value={line.packs}
+                      onChange={(e) => updatePack(line.key, { packs: Number(e.target.value) })}
+                      className="h-9 text-right tabular"
+                      aria-label={`Number of packs for ${line.itemName}`}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">{t("reqm.qtyPerPack")}</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.001"
+                      inputMode="decimal"
+                      value={line.qtyPerPack}
+                      onChange={(e) => updatePack(line.key, { qtyPerPack: Number(e.target.value) })}
+                      className="h-9 text-right tabular"
+                      aria-label={`Quantity per pack for ${line.itemName}`}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">
+                      {t("reqm.requiredQty")}{line.unitCode ? ` (${line.unitCode})` : ""}
+                    </span>
+                    <div className="flex h-9 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium">
+                      {line.requiredQty}
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">{t("req.estRate")}</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      inputMode="decimal"
+                      value={line.estimatedRate}
+                      onChange={(e) => updateLine(line.key, { estimatedRate: Number(e.target.value) })}
+                      className="h-9 text-right tabular"
+                      aria-label={`Estimated rate for ${line.itemName}`}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">{t("reqm.expectedDate")}</span>
+                    <Input
+                      type="date"
+                      value={line.expectedDate}
+                      onChange={(e) => updateLine(line.key, { expectedDate: e.target.value })}
+                      className="h-9"
+                      aria-label={`Expected date for ${line.itemName}`}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-muted-foreground">{t("reqm.estAmount")}</span>
+                    <div className="flex h-9 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium">
+                      {formatCurrency(round2(line.requiredQty * line.estimatedRate))}
+                    </div>
+                  </label>
+                </div>
+                <label className="mt-2.5 block">
+                  <span className="mb-1 block text-xs text-muted-foreground">{t("pur.remark")}</span>
+                  <Input
+                    value={line.remarks}
+                    onChange={(e) => updateLine(line.key, { remarks: e.target.value })}
+                    className="h-9"
+                    placeholder={t("common.optional")}
+                    aria-label={`Remark for ${line.itemName}`}
+                  />
+                </label>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">

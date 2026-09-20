@@ -17,9 +17,11 @@ const buttonVariants = cva(
           "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        // The light-green primary-action colour used on Save buttons.
+        // Save / confirm buttons: a SOFT light-green tint with matching green text
+        // + icon (not a solid fill), per the shop's button style — bg is light,
+        // the text/icon are the same green hue.
         success:
-          "bg-[#22c55e] text-white shadow hover:bg-[#16a34a]",
+          "border border-green-200 bg-green-100 text-green-700 shadow-sm hover:bg-green-200 dark:border-green-500/25 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25",
         // A true neutral grey. --secondary is a faint green in this theme, so
         // the list screens' "New X" launcher buttons use --muted instead to sit
         // quietly beside the grey grid.

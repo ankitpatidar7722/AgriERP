@@ -8,6 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/features/auth/auth-context";
 import { LanguageProvider } from "@/features/i18n/provider";
 import { ApiError } from "@/types/api";
+// Side-effect: attaches the `beforeinstallprompt` listener at app load so the
+// "Install App" button can offer install even though the event fires very early.
+import "@/lib/pwa-install";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   // Created in state, not at module scope: a module-level client would be

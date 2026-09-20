@@ -88,12 +88,15 @@ export default function SupplierLedgerPage() {
               />
             )}
           </Field>
-          <Field label={t("common.fromDate")} htmlFor="from">
-            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label={t("common.toDate")} htmlFor="to">
-            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </Field>
+          {/* From + To always share one row (side by side even on a phone). */}
+          <div className="grid grid-cols-2 gap-4 sm:contents">
+            <Field label={t("common.fromDate")} htmlFor="from">
+              <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </Field>
+            <Field label={t("common.toDate")} htmlFor="to">
+              <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </Field>
+          </div>
           {ledger.data && (
             <Field label={t("ledger.closingBalance")}>
               <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm font-semibold tabular">

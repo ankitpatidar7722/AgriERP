@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, UserPlus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
+import { useDevice } from "indas-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,6 +80,7 @@ export default function NewGrnPage() {
   const router = useRouter();
   const { can } = useAuth();
   const t = useT();
+  const { isMobile } = useDevice();
 
   const [purchaseDate, setPurchaseDate] = useState(toIsoDate(new Date()));
   const [supplierId, setSupplierId] = useState<number | null>(null);
@@ -716,6 +718,159 @@ export default function NewGrnPage() {
                   ? t("grn.orderNothingLeft")
                   : t("grn.pickOrderHint")}
               </div>
+            ) : isMobile ? (
+              /* Phone: each received line as a stacked card — the wide GRN table
+                 would need horizontal scrolling and hide most fields. */
+              <div className="space-y-3">
+                {lines.map((line, index) => {
+                  const lineGross = round2(line.quantity * line.rate);
+                  const lineNet = round2(lineGross - (lineGross * line.discountPercent) / 100);
+                  return (
+                    <div key={line.key} className="rounded-lg border bg-card p-3 shadow-sm">
+                      <div className="mb-2.5 flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium leading-tight">
+                            <span className="text-muted-foreground">#{index + 1} </span>
+                            {line.item.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            GST {line.item.gstPercent}% · {line.item.unitCode}
+                            {line.pendingQty != null && (
+                              <>
+                                {" "}
+                                · {t("grn.orderedLabel", "ordered")} {line.orderedQty}, {t("grn.pendingLabel", "pending")}{" "}
+                                {line.pendingQty}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0 text-destructive hover:text-destructive"
+                          onClick={() => removeLine(line.key)}
+                          aria-label={`Remove ${line.item.name}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.batch")}</span>
+                          <Input
+                            value={line.batchNumber}
+                            onChange={(e) => updateLine(line.key, { batchNumber: e.target.value })}
+                            className="h-9"
+                            placeholder="GEN"
+                            aria-label={`Batch for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.expiry")}</span>
+                          <Input
+                            type="date"
+                            value={line.expiryDate}
+                            onChange={(e) => updateLine(line.key, { expiryDate: e.target.value })}
+                            className="h-9"
+                            aria-label={`Expiry for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.receivedQtyCol")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.001"
+                            inputMode="decimal"
+                            value={line.quantity}
+                            onChange={(e) => updateLine(line.key, { quantity: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`Received quantity for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.free")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.001"
+                            inputMode="decimal"
+                            value={line.freeQuantity}
+                            onChange={(e) => updateLine(line.key, { freeQuantity: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`Free quantity for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("pur.rate")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={line.rate}
+                            onChange={(e) => updateLine(line.key, { rate: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`Rate for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("pur.discPercent")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={line.discountPercent}
+                            onChange={(e) => updateLine(line.key, { discountPercent: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`Discount for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.newMrp")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={line.mrp}
+                            onChange={(e) => updateLine(line.key, { mrp: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`New MRP for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.newSelling")}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={line.sellingRate}
+                            onChange={(e) => updateLine(line.key, { sellingRate: Number(e.target.value) })}
+                            className="h-9 text-right tabular"
+                            aria-label={`New selling rate for ${line.item.name}`}
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-xs text-muted-foreground">{t("grn.landed")}</span>
+                          <div className="flex h-9 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium">
+                            {formatCurrency(landedRateFor(line))}
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between border-t pt-2.5">
+                        <span className="text-sm text-muted-foreground">{t("common.total")}</span>
+                        <span className="tabular text-base font-semibold">{formatCurrency(lineNet)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-sm">
@@ -1006,7 +1161,7 @@ export default function NewGrnPage() {
           </Button>
           {can(Permissions.Purchase.Post) && (
             <Button variant="success" onClick={() => void save(true)} disabled={isBusy}>
-              {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />}
               {isEdit ? t("grn.saveAndPost") : t("grn.receiveAndPost")}
             </Button>
           )}

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X } from "lucide-react";
-import { toast } from "sonner";
+import { useDevice } from "indas-ui";
+import { Loader2, Save, X } from "lucide-react";
+import { toast } from "@/lib/ag-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +56,7 @@ export default function NewSalesReturnPage() {
   const router = useRouter();
   const { can } = useAuth();
   const t = useT();
+  const { isMobile } = useDevice();
 
   const [saleId, setSaleId] = useState<number | null>(null);
   const [appliedSaleId, setAppliedSaleId] = useState<number | null>(null);
@@ -239,6 +241,71 @@ export default function NewSalesReturnPage() {
         {fromInvoice && (
           <Card>
             <CardContent className="p-0">
+              {isMobile ? (
+                /* Phone: each returnable line as a stacked card. */
+                <div className="space-y-3 p-3">
+                  {sale.isLoading && lines.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+                  ) : (
+                    lines.map((line, index) => (
+                      <div key={line.salesDetailId} className="rounded-lg border bg-card p-3 shadow-sm">
+                        <div className="mb-2.5 min-w-0">
+                          <p className="font-medium leading-tight">{line.itemName}</p>
+                          {line.batchNumber && (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {t("sret.batch", "Batch")}: {line.batchNumber}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mb-2 grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">{t("sret.sold", "Sold")}</span>
+                            <span className="tabular font-medium">
+                              {formatQuantity(line.soldQty)} {line.unitCode}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5">
+                            <span className="text-muted-foreground">{t("sret.rate", "Rate")}</span>
+                            <span className="tabular font-medium">{formatCurrency(line.rate)}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 items-end gap-2.5">
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-muted-foreground">{t("sret.returnQty", "Return Qty")}</span>
+                            <NumberInput
+                              value={line.returnQty}
+                              onChange={(value) =>
+                                setLine(index, { returnQty: Math.min(Math.max(value, 0), line.soldQty) })
+                              }
+                              min={0}
+                              max={line.soldQty}
+                              step="0.001"
+                              className="h-9 text-right tabular"
+                            />
+                          </label>
+                          <div className="flex h-9 items-center justify-between rounded-md border px-3">
+                            <span className="text-xs text-muted-foreground">{t("sret.saleable", "Saleable")}</span>
+                            <Switch
+                              checked={line.isSaleable}
+                              onCheckedChange={(checked) => setLine(index, { isSaleable: checked })}
+                              aria-label="Saleable"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 flex items-center justify-between border-t pt-2.5">
+                          <span className="text-sm text-muted-foreground">{t("sret.lineTotal", "Total")}</span>
+                          <span className="tabular text-base font-semibold">
+                            {formatCurrency(round2(line.returnQty * line.rate))}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
               <div className="overflow-x-auto rounded-lg">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
@@ -297,6 +364,7 @@ export default function NewSalesReturnPage() {
                   </tbody>
                 </table>
               </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -347,7 +415,7 @@ export default function NewSalesReturnPage() {
           </Button>
           {can(Permissions.Sales.Return) && (
             <Button variant="success" onClick={() => void save(true)} disabled={isBusy}>
-              {isBusy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {isBusy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />}
               {t("sret.savePost", "Save & Post")}
             </Button>
           )}

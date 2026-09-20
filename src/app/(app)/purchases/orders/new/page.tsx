@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, RefreshCw, RotateCcw, Save, Trash2, UserPlus, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
+import { useDevice } from "indas-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,6 +77,7 @@ const GRID_DERIVED =
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
   const t = useT();
+  const { isMobile } = useDevice();
 
   const [orderDate, setOrderDate] = useState(toIsoDate(new Date()));
   const [expectedDate, setExpectedDate] = useState("");
@@ -551,6 +553,126 @@ export default function NewPurchaseOrderPage() {
             {lines.length === 0 ? (
               <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
                 {t("po.emptyItemsHint")}
+              </div>
+            ) : isMobile ? (
+              /* Phone: each order line as a stacked card — the 14-column table
+                 would need horizontal scrolling and hide most fields. */
+              <div className="space-y-3">
+                {lines.map((line, index) => (
+                  <div key={line.key} className="rounded-lg border bg-card p-3 shadow-sm">
+                    <div className="mb-2.5 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium leading-tight">
+                          <span className="text-muted-foreground">#{index + 1} </span>
+                          {line.item.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[line.item.code, line.item.itemGroupName, line.item.itemSubGroupName]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => removeLine(line.key)}
+                        aria-label={`Remove ${line.item.name}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+
+                    {line.requiredQty != null && (
+                      <div className="mb-2 flex items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5 text-xs">
+                        <span className="text-muted-foreground">{t("po.requiredQtyCol")}</span>
+                        <span className="tabular font-medium">
+                          {formatQuantity(line.requiredQty)} {line.item.unitCode}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">{t("po.noOfPacksCol")}</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="1"
+                          inputMode="numeric"
+                          value={line.noOfPacks}
+                          onChange={(e) => updatePack(line.key, { noOfPacks: Number(e.target.value) })}
+                          className="h-9 text-right tabular"
+                          aria-label={`Number of packs for ${line.item.name}`}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">{t("po.qtyPerPackCol")}</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.001"
+                          inputMode="decimal"
+                          value={line.qtyPerPack}
+                          onChange={(e) => updatePack(line.key, { qtyPerPack: Number(e.target.value) })}
+                          className="h-9 text-right tabular"
+                          aria-label={`Quantity per pack for ${line.item.name}`}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">
+                          {t("po.poQtyInPuCol")} ({line.item.unitCode})
+                        </span>
+                        <div className="flex h-9 items-center justify-end rounded-md border bg-muted/50 px-3 text-right tabular font-medium">
+                          {formatQuantity(line.orderedQty)}
+                        </div>
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">{t("po.purchaseUnitRateCol")}</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          value={line.rate}
+                          onChange={(e) => updateLine(line.key, { rate: Number(e.target.value) })}
+                          className="h-9 text-right tabular"
+                          aria-label={`Purchase unit rate for ${line.item.name}`}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between border-t pt-2.5">
+                      <span className="text-sm text-muted-foreground">{t("po.totalAmountCol")}</span>
+                      <span className="tabular text-base font-semibold">
+                        {formatCurrency(round2(line.orderedQty * line.rate))}
+                      </span>
+                    </div>
+
+                    <div className="mt-2.5 grid gap-2.5">
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">{t("po.itemRemarkCol")}</span>
+                        <Input
+                          value={line.itemRemark}
+                          onChange={(e) => updateLine(line.key, { itemRemark: e.target.value })}
+                          className="h-9"
+                          placeholder={t("common.optional")}
+                          aria-label={`Item remark for ${line.item.name}`}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1 block text-xs text-muted-foreground">{t("po.remarkCol")}</span>
+                        <Input
+                          value={line.lineRemark}
+                          onChange={(e) => updateLine(line.key, { lineRemark: e.target.value })}
+                          className="h-9"
+                          placeholder={t("common.optional")}
+                          aria-label={`Remark for ${line.item.name}`}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border">

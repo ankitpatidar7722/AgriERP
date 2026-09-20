@@ -6,6 +6,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/features/auth/auth-context";
 import { DesktopSidebar } from "@/components/layout/desktop-sidebar";
 import { Navbar } from "@/components/layout/navbar";
+import { BottomNav } from "@/components/layout/bottom-nav";
+import { AlertBridge } from "@/components/common/alert-bridge";
 import { IndasProvider } from "@/components/indas/indas-provider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -53,9 +55,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <Navbar />
-          <main className="flex-1 p-4 sm:p-5 lg:p-7">{children}</main>
+          {/* Extra bottom padding on phones so the fixed BottomNav never hides content. */}
+          <main className="flex-1 p-4 pb-24 sm:p-5 sm:pb-24 lg:p-7 lg:pb-7">{children}</main>
         </div>
       </div>
+
+      {/* Phone-only bottom navigation (hidden from lg up). */}
+      <BottomNav />
+
+      {/* Routes app toasts through indas-ui's alert (same success/error popup as Indus 360). */}
+      <AlertBridge />
     </IndasProvider>
   );
 }

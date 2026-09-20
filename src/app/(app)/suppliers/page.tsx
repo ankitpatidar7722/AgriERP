@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -262,7 +262,7 @@ export default function SuppliersPage() {
         <div className="flex justify-end gap-1">
           {can(Permissions.Supplier.Edit) && (
             <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(row)} aria-label={`Edit ${row.supplierName}`}>
-              <Pencil className="size-4" />
+              <Edit className="size-4" />
             </Button>
           )}
           {can(Permissions.Supplier.Delete) && (

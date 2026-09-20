@@ -6,7 +6,7 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useT } from "@/features/i18n/provider";
 import { ApiError, type LookupDto, type PagedResult, type QueryParameters } from "@/types/api";

@@ -11,3 +11,14 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+/**
+ * Human-friendly ("natural") ordering used by the owned DataGrid's sort: numbers
+ * inside strings compare by value, so "Bag 2" sorts before "Bag 10", and case is
+ * ignored. Backs `naturalCompare` imported by `@/components/datagrid`.
+ */
+const naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+export function naturalCompare(a: unknown, b: unknown): number {
+  return naturalCollator.compare(String(a ?? ""), String(b ?? ""));
+}

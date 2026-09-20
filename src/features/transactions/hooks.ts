@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/ag-toast";
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import { useT } from "@/features/i18n/provider";
 import { ApiError, type LookupDto, type PagedResult } from "@/types/api";

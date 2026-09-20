@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Edit, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,7 +47,7 @@ export default function PurchaseRequisitionDetailPage() {
             </Button>
             {canEdit && (
               <Button variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-1.5 size-4" />
+                <Edit className="mr-1.5 size-4" />
                 {t("common.edit")}
               </Button>
             )}

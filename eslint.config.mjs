@@ -11,6 +11,13 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    // The datagrid/ directory is a vendored, generics-heavy grid component
+    // ported in from another app; it intentionally leans on `any` for arbitrary
+    // row/column shapes, so it is exempt from lint. The rest of the app stays
+    // fully linted (type-checking still applies to these files via tsc).
+    ignores: ["src/components/datagrid/**"],
+  },
 ];
 
 export default eslintConfig;

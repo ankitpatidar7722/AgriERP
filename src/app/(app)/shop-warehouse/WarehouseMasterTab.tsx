@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, Pencil, Plus, Save, Trash2, X } from "lucide-react";
-import { toast } from "sonner";
+import { Eye, Edit, Plus, Save, Trash2, X } from "lucide-react";
+import { toast } from "@/lib/ag-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,7 +180,7 @@ export function WarehouseMasterTab() {
               aria-label={`Edit ${row.warehouseName}`}
               title={t("common.edit")}
             >
-              <Pencil className="size-4" />
+              <Edit className="size-4" />
             </Button>
           )}
           {canEdit && (

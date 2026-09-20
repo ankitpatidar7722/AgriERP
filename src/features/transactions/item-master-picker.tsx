@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DataGrid } from "indas-ui";
+import { DataGrid, useDevice } from "indas-ui";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Check, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { itemHooks } from "@/features/masters/hooks";
 import type { ItemListDto } from "@/features/masters/types";
@@ -45,12 +47,17 @@ export function ItemMasterPicker({
   onConfirm,
 }: ItemMasterPickerProps) {
   const t = useT();
+  const { isMobile } = useDevice();
   const [selected, setSelected] = useState<ItemListDto[]>([]);
+  const [query, setQuery] = useState("");
   const list = itemHooks.useList({ page: 1, pageSize: PAGE_SIZE });
 
-  // A fresh open starts with nothing ticked.
+  // A fresh open starts with nothing ticked and no search.
   useEffect(() => {
-    if (open) setSelected([]);
+    if (open) {
+      setSelected([]);
+      setQuery("");
+    }
   }, [open]);
 
   const addedSet = useMemo(() => new Set(addedIds), [addedIds]);
@@ -58,6 +65,21 @@ export function ItemMasterPicker({
     () => (list.data?.items ?? []).filter((row) => !addedSet.has(row.itemId)),
     [list.data, addedSet],
   );
+
+  // Mobile: a plain tap-to-select list instead of the wide grid. Filter by name,
+  // code, group or sub-group; toggle a row in/out of the selection on tap.
+  const selectedIds = useMemo(() => new Set(selected.map((s) => s.itemId)), [selected]);
+  const mobileRows = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((r) =>
+      `${r.itemName} ${r.itemCode} ${r.itemGroupName} ${r.itemSubGroupName}`.toLowerCase().includes(term),
+    );
+  }, [rows, query]);
+  const toggle = (row: ItemListDto) =>
+    setSelected((cur) =>
+      cur.some((s) => s.itemId === row.itemId) ? cur.filter((s) => s.itemId !== row.itemId) : [...cur, row],
+    );
 
   const columns = useMemo<ColumnDef<ItemListDto>[]>(
     () => [
@@ -123,26 +145,89 @@ export function ItemMasterPicker({
           <DialogTitle>{t("picker.title")}</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-hidden px-5">
-          <DataGrid<ItemListDto>
-            data={rows}
-            columns={columns}
-            getRowId={(row) => String(row.itemId)}
-            onRowSelect={(items: ItemListDto[]) => setSelected(items)}
-            loading={list.isLoading}
-            enableRowSelection
-            rowSelectionMode="multi"
-            enableSearch
-            enableSorting
-            enableFiltering
-            enableFilterRow
-            enableColumnVisibility={false}
-            enableExport={false}
-            pageSize={25}
-            stickyHeader
-            maxHeight="60vh"
-          />
-        </div>
+        {isMobile ? (
+          /* Phone: a dead-simple search + tap-to-select list. */
+          <div className="flex min-h-0 flex-1 flex-col gap-2 px-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("picker.searchPlaceholder", "Search item, code or group")}
+                className="pl-8"
+                inputMode="search"
+                autoFocus
+              />
+            </div>
+            <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+              {list.isLoading ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">…</div>
+              ) : mobileRows.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">{t("picker.noItems", "No items found")}</div>
+              ) : (
+                <ul className="space-y-1.5 pb-1">
+                  {mobileRows.map((row) => {
+                    const on = selectedIds.has(row.itemId);
+                    return (
+                      <li key={row.itemId}>
+                        <button
+                          type="button"
+                          onClick={() => toggle(row)}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors",
+                            on ? "border-primary bg-primary/5" : "bg-card active:bg-accent/50",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex size-5 shrink-0 items-center justify-center rounded-md border",
+                              on ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                            )}
+                          >
+                            {on && <Check className="size-3.5" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{row.itemName}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {[row.itemGroupName, row.itemSubGroupName, row.itemCode].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right text-xs leading-tight">
+                            <span className="block tabular font-medium">{formatCurrency(row.sellingRate)}</span>
+                            <span className={cn("block tabular", row.currentStock <= 0 && "text-destructive")}>
+                              {formatQuantity(row.currentStock)} {row.unitCode}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden px-5">
+            <DataGrid<ItemListDto>
+              data={rows}
+              columns={columns}
+              getRowId={(row) => String(row.itemId)}
+              onRowSelect={(items: ItemListDto[]) => setSelected(items)}
+              loading={list.isLoading}
+              enableRowSelection
+              rowSelectionMode="multi"
+              enableSearch
+              enableSorting
+              enableFiltering
+              enableFilterRow
+              enableColumnVisibility={false}
+              enableExport={false}
+              pageSize={25}
+              stickyHeader
+              maxHeight="60vh"
+            />
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3 border-t px-5 py-4">
           <span className="text-sm text-muted-foreground">

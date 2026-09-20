@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Ban, CheckCircle2, Loader2, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, Loader2, Edit, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,7 +59,7 @@ export default function PurchaseDetailPage() {
                 variant="outline"
                 onClick={() => router.push(`/purchases/new?editId=${purchaseId}`)}
               >
-                <Pencil className="mr-1.5 size-4" />
+                <Edit className="mr-1.5 size-4" />
                 {t("common.edit")}
               </Button>
             )}

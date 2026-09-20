@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, ClipboardList, ListChecks, Pencil, Plus } from "lucide-react";
+import { Ban, ClipboardList, ListChecks, Edit, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -193,7 +193,7 @@ export default function PurchaseRequisitionsPage() {
               aria-label={`Edit ${row.requisitionNumber}`}
               title={t("common.edit")}
             >
-              <Pencil className="size-4" />
+              <Edit className="size-4" />
             </Button>
           )}
           {(row.status === "Open" || row.status === "Partial") && canCreate && (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Edit, Plus, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,7 +128,7 @@ export default function SalesPage() {
             aria-label={`Open ${row.invoiceNumber}`}
             title={t("sale.open")}
           >
-            <Pencil className="size-4" />
+            <Edit className="size-4" />
           </Button>
           <Button
             variant="ghost"

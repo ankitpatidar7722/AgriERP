@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, FileText, PackageCheck, Pencil, Plus, Printer, ShoppingCart } from "lucide-react";
+import { ClipboardList, FileText, PackageCheck, Edit, Plus, Printer, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -147,7 +147,7 @@ export default function PurchaseOrdersPage() {
             aria-label={`Edit ${row.orderNumber}`}
             title={t("common.edit", "Edit")}
           >
-            <Pencil className="size-4" />
+            <Edit className="size-4" />
           </Button>
           <Button
             variant="ghost"
