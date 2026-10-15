@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPut } from "@/lib/api-client";
 import type { LookupDto, ItemFormLookups } from "@/types/api";
 import { createMasterHooks } from "./use-master-crud";
 import type {
@@ -27,6 +27,8 @@ import type {
   ShopDto,
   ShopListDto,
   ShopQuery,
+  InvoiceSettingsDto,
+  SaveInvoiceSettingsRequest,
   SupplierDto,
   SupplierListDto,
   SupplierQuery,
@@ -79,6 +81,26 @@ export function useCurrentShop() {
     queryKey: ["shops", "current"],
     queryFn: () => apiGet<ShopListDto | null>("/shops/current"),
     staleTime: 5 * 60_000,
+  });
+}
+
+/** Invoice-header settings (UPI id, dealer licences, bank, terms) - the single CompanyProfile row. */
+export function useInvoiceSettings() {
+  return useQuery({
+    queryKey: ["company-profile"],
+    queryFn: () => apiGet<InvoiceSettingsDto>("/company-profile"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSaveInvoiceSettings() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SaveInvoiceSettingsRequest) =>
+      apiPut<InvoiceSettingsDto>("/company-profile", body),
+    onSuccess: (data) => {
+      client.setQueryData(["company-profile"], data);
+    },
   });
 }
 

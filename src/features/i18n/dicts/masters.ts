@@ -6,6 +6,57 @@ import type { Lang } from "../config";
  * `co.*` / `sup.*` / `unit.*` / `shop.*` / `wh.*`.
  */
 export const mastersDict: Record<string, Record<Lang, string>> = {
+  /* ------------------------ invoice & licence settings --------------------- */
+  "inv.tabLabel": { en: "Invoice & Licences", hi: "बिल और लाइसेंस", hg: "Bill aur Licence" },
+  "inv.title": { en: "Invoice & Licence Settings", hi: "बिल और लाइसेंस सेटिंग", hg: "Bill aur Licence Settings" },
+  "inv.desc": {
+    en: "UPI, dealer licences, bank and terms - printed on bills, receipts and compliance registers.",
+    hi: "UPI, डीलर लाइसेंस, बैंक और शर्तें - बिल, रसीद और कंप्लायंस रजिस्टर पर छपती हैं।",
+    hg: "UPI, dealer licence, bank aur terms - bill, receipt aur compliance register par chhapti hain.",
+  },
+  "inv.secIdentity": { en: "Shop Identity", hi: "दुकान पहचान", hg: "Shop Identity" },
+  "inv.secAddress": { en: "Address", hi: "पता", hg: "Address" },
+  "inv.secContact": { en: "Contact", hi: "संपर्क", hg: "Contact" },
+  "inv.secLicences": { en: "Dealer Licences", hi: "डीलर लाइसेंस", hg: "Dealer Licence" },
+  "inv.secPayment": { en: "Payment (UPI / Bank)", hi: "भुगतान (UPI / बैंक)", hg: "Payment (UPI / Bank)" },
+  "inv.secInvoiceText": { en: "Invoice Text", hi: "बिल टेक्स्ट", hg: "Bill Text" },
+  "inv.legalName": { en: "Legal / Firm Name", hi: "कानूनी / फर्म नाम", hg: "Legal / Firm Naam" },
+  "inv.panNumber": { en: "PAN Number", hi: "पैन नंबर", hg: "PAN Number" },
+  "inv.pincode": { en: "Pincode", hi: "पिनकोड", hg: "Pincode" },
+  "inv.phone": { en: "Phone", hi: "फ़ोन", hg: "Phone" },
+  "inv.altPhone": { en: "Alternate Phone", hi: "वैकल्पिक फ़ोन", hg: "Alternate Phone" },
+  "inv.website": { en: "Website", hi: "वेबसाइट", hg: "Website" },
+  "inv.pesticideLic": { en: "Pesticide Licence No.", hi: "कीटनाशक लाइसेंस नं.", hg: "Pesticide Licence No." },
+  "inv.seedLic": { en: "Seed Licence No.", hi: "बीज लाइसेंस नं.", hg: "Seed Licence No." },
+  "inv.fertilizerLic": { en: "Fertilizer Licence No.", hi: "खाद लाइसेंस नं.", hg: "Fertilizer Licence No." },
+  "inv.upiId": { en: "UPI ID", hi: "UPI आईडी", hg: "UPI ID" },
+  "inv.upiHint": {
+    en: "e.g. shopname@okaxis - a scan-to-pay QR with the bill amount is printed on invoices.",
+    hi: "जैसे shopname@okaxis - बिल पर राशि सहित स्कैन-टू-पे QR छपेगा।",
+    hg: "jaise shopname@okaxis - bill par amount ke saath scan-to-pay QR chhapega.",
+  },
+  "inv.bankName": { en: "Bank Name", hi: "बैंक का नाम", hg: "Bank Naam" },
+  "inv.bankAccount": { en: "Account Number", hi: "खाता संख्या", hg: "Account Number" },
+  "inv.bankIfsc": { en: "IFSC Code", hi: "IFSC कोड", hg: "IFSC Code" },
+  "inv.bankBranch": { en: "Branch", hi: "शाखा", hg: "Branch" },
+  "inv.terms": { en: "Invoice Terms & Conditions", hi: "बिल शर्तें", hg: "Bill Terms & Conditions" },
+  "inv.footerNote": { en: "Invoice Footer Note", hi: "बिल फुटर नोट", hg: "Bill Footer Note" },
+  "inv.secMandi": { en: "Mandi Prices (data.gov.in)", hi: "मंडी भाव (data.gov.in)", hg: "Mandi Bhav (data.gov.in)" },
+  "inv.dataGovKey": { en: "data.gov.in API Key", hi: "data.gov.in API Key", hg: "data.gov.in API Key" },
+  "inv.dataGovHint": {
+    en: "Free key from data.gov.in (My Account → Generate API Key). Enables the mandi-price widget. Stored on the server, never shown again.",
+    hi: "data.gov.in से फ्री key (My Account → Generate API Key)। मंडी भाव विजेट चालू करती है। सर्वर पर सुरक्षित, दोबारा नहीं दिखेगी।",
+    hg: "data.gov.in se free key (My Account → Generate API Key). Mandi bhav widget chalu karti hai. Server par safe, dobara nahi dikhegi.",
+  },
+  "inv.dataGovKeySet": { en: "✓ A key is saved. Type a new one only to replace it.", hi: "✓ key सेव है. बदलनी हो तभी नई डालें.", hg: "✓ key save hai. Badalni ho tabhi nayi daalo." },
+  "inv.dataGovKeyNone": { en: "No key yet - mandi prices are off until you add one.", hi: "अभी key नहीं - मंडी भाव तब तक बंद.", hg: "Abhi key nahi - mandi bhav tab tak band." },
+  "inv.saved": { en: "Invoice settings saved.", hi: "बिल सेटिंग सेव हो गई।", hg: "Bill settings save ho gayi." },
+  "inv.noPermission": {
+    en: "You do not have permission to edit these settings.",
+    hi: "आपको ये सेटिंग बदलने की अनुमति नहीं है।",
+    hg: "Aapko ye settings badalne ki permission nahi hai.",
+  },
+
   /* ------------------------------ companies ------------------------------- */
   "co.title": { en: "Companies", hi: "कंपनियाँ", hg: "Companies" },
   "co.desc": {

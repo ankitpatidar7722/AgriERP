@@ -22,6 +22,8 @@ import {
 } from "@/features/dashboard/kit";
 import { useT } from "@/features/i18n/provider";
 import { DashboardFilter, defaultRange, type DashRange } from "@/features/dashboard/date-filter";
+import { WeatherWidget } from "@/features/agri/weather-widget";
+import { MandiWidget } from "@/features/agri/mandi-widget";
 import { formatCurrency, formatDate, formatQuantity } from "@/lib/format";
 
 function compactINR(n: number): string {
@@ -43,6 +45,10 @@ export function SalesDashboard() {
   return (
     <div className="space-y-6">
       <DashHeader title={t("dash.salesDash")} range={range} onChange={setRange} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <WeatherWidget />
+        <MandiWidget />
+      </div>
       <ExpiredAlert data={data} t={t} />
       <SalesTab data={data} recv={recv.data} isLoading={isLoading} top={top.data} t={t} periodLabel={range.label} />
     </div>

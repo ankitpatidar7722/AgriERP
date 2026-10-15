@@ -388,6 +388,47 @@ export interface ShopQuery extends QueryParameters {
   stateId?: number | null;
 }
 
+/* -------------------- invoice settings (CompanyProfile) ------------------- */
+
+/** The single CompanyProfile row - shop identity printed on invoices/registers. */
+export interface InvoiceSettingsDto {
+  shopName: string;
+  legalName?: string | null;
+  gstNumber?: string | null;
+  panNumber?: string | null;
+  pesticideLicenceNo?: string | null;
+  seedLicenceNo?: string | null;
+  fertilizerLicenceNo?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  city?: string | null;
+  stateId?: number | null;
+  stateName?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  alternatePhone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankIfsc?: string | null;
+  bankBranch?: string | null;
+  upiId?: string | null;
+  invoiceTerms?: string | null;
+  invoiceFooterNote?: string | null;
+  /** True when a data.gov.in mandi key is saved (the key itself is never sent to the client). */
+  dataGovInKeySet?: boolean;
+  updatedAt?: string | null;
+}
+
+export type SaveInvoiceSettingsRequest = Omit<
+  InvoiceSettingsDto,
+  "stateName" | "updatedAt" | "dataGovInKeySet"
+> & {
+  /** New mandi key; omit/blank to keep the existing one. */
+  dataGovInApiKey?: string | null;
+};
+
 /* ---------------------------- warehouse master ---------------------------- */
 
 export interface WarehouseListDto {

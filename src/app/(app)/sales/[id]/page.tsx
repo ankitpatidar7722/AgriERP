@@ -12,20 +12,28 @@ import { DocumentStatusBadge, PaymentStatusBadge } from "@/components/common/sta
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useAuth } from "@/features/auth/auth-context";
 import { useCancelSale, usePostSale, useSale } from "@/features/transactions/hooks";
+import { useCurrentShop, useCustomerProfile, useInvoiceSettings } from "@/features/masters/hooks";
 import { formatCurrency, formatDate, formatQuantity } from "@/lib/format";
 import { Permissions } from "@/lib/permissions";
-import { useT } from "@/features/i18n/provider";
+import { useLang, useT } from "@/features/i18n/provider";
+import { WhatsAppButton } from "@/components/common/whatsapp-button";
+import { UpiQr } from "@/components/common/upi-qr";
+import { buildBillMessage } from "@/lib/whatsapp";
 
 export default function SaleDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { can } = useAuth();
   const t = useT();
+  const { lang } = useLang();
   const saleId = Number(params.id);
 
   const sale = useSale(saleId);
   const post = usePostSale();
   const cancel = useCancelSale();
+  const shop = useCurrentShop();
+  const custProfile = useCustomerProfile(sale.data?.customerId ?? null);
+  const invoiceSettings = useInvoiceSettings();
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -39,6 +47,7 @@ export default function SaleDetailPage() {
 
   const isDraft = data.status === "Draft";
   const isPosted = data.status === "Posted";
+  const billPhone = data.walkInMobile || custProfile.data?.mobile || null;
 
   return (
     <>
@@ -51,6 +60,23 @@ export default function SaleDetailPage() {
               <ArrowLeft className="mr-1.5 size-4" />
               {t("common.back")}
             </Button>
+
+            {data.status !== "Cancelled" && (
+              <WhatsAppButton
+                size="default"
+                phone={billPhone}
+                label={t("wa.sendBill")}
+                message={buildBillMessage({
+                  name: data.customerName,
+                  invoiceNumber: data.invoiceNumber,
+                  dateText: formatDate(data.invoiceDate),
+                  grandTotal: data.grandTotal,
+                  balance: data.balanceAmount,
+                  shopName: shop.data?.shopName,
+                  lang,
+                })}
+              />
+            )}
 
             {isDraft && can(Permissions.Sales.Post) && (
               <Button onClick={() => post.mutate(saleId)} disabled={post.isPending}>
@@ -236,6 +262,18 @@ export default function SaleDetailPage() {
                 <div className="flex items-center justify-between font-medium text-destructive">
                   <span>{t("sale.balance")}</span>
                   <span className="tabular">{formatCurrency(data.balanceAmount)}</span>
+                </div>
+              )}
+              {invoiceSettings.data?.upiId && data.balanceAmount > 0 && data.status !== "Cancelled" && (
+                <div className="flex flex-col items-center gap-2 border-t pt-3">
+                  <UpiQr
+                    payeeVpa={invoiceSettings.data.upiId}
+                    payeeName={invoiceSettings.data.shopName || shop.data?.shopName}
+                    amount={data.balanceAmount}
+                    note={data.invoiceNumber}
+                    size={132}
+                    caption={t("sale.scanToPay")}
+                  />
                 </div>
               )}
             </CardContent>

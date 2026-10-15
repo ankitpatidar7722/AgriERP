@@ -1,30 +1,34 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, BookOpen, Wallet } from "lucide-react";
+import { ArrowLeft, BookOpen, NotebookText, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/common/page-header";
 import { useAuth } from "@/features/auth/auth-context";
-import { customerHooks, useCustomerLedger, useCustomerProfile } from "@/features/masters/hooks";
+import { customerHooks, useCurrentShop, useCustomerLedger, useCustomerProfile } from "@/features/masters/hooks";
 import type { CustomerLedgerRow } from "@/features/masters/types";
-import { useT } from "@/features/i18n/provider";
+import { useLang, useT } from "@/features/i18n/provider";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Permissions } from "@/lib/permissions";
 import { LedgerTable } from "@/features/accounts/ledger-table";
+import { WhatsAppButton } from "@/components/common/whatsapp-button";
+import { buildUdhaarMessage } from "@/lib/whatsapp";
 
 export default function CustomerProfilePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { can } = useAuth();
   const t = useT();
+  const { lang } = useLang();
   const customerId = Number(params.id);
 
   const profile = useCustomerProfile(customerId);
   const ledger = useCustomerLedger(customerId);
   const detail = customerHooks.useOne(customerId);
+  const shop = useCurrentShop();
 
   if (profile.isLoading) return <Skeleton className="h-96 w-full rounded-xl" />;
   const p = profile.data;
@@ -47,6 +51,23 @@ export default function CustomerProfilePage() {
             <Button variant="outline" onClick={() => router.push("/customers")}>
               <ArrowLeft className="mr-1.5 size-4" />
               {t("common.back")}
+            </Button>
+            {p.mobile && p.outstanding > 0 && (
+              <WhatsAppButton
+                size="default"
+                phone={p.mobile}
+                label={t("wa.reminder")}
+                message={buildUdhaarMessage({
+                  name: p.customerName,
+                  amount: p.outstanding,
+                  shopName: shop.data?.shopName,
+                  lang,
+                })}
+              />
+            )}
+            <Button variant="outline" onClick={() => router.push(`/customers/${customerId}/passbook`)}>
+              <NotebookText className="mr-1.5 size-4" />
+              {t("pb.passbookBtn")}
             </Button>
             {can(Permissions.Payment.Create) && (
               <Button onClick={() => router.push(`/accounts/customer-payment?customerId=${customerId}`)}>

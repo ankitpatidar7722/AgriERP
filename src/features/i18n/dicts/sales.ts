@@ -12,6 +12,7 @@ export const sales: Record<string, Record<Lang, string>> = {
   "sale.newInvoice": { en: "New invoice", hi: "नया बिल", hg: "Nayi invoice" },
   "sale.invoice": { en: "Invoice", hi: "बिल", hg: "Invoice" },
   "sale.balance": { en: "Balance", hi: "बकाया", hg: "Baaki" },
+  "sale.scanToPay": { en: "Scan to pay the balance", hi: "बकाया चुकाने के लिए स्कैन करें", hg: "Baaki pay karne ke liye scan karein" },
   "sale.payment": { en: "Payment", hi: "भुगतान", hg: "Payment" },
   "sale.open": { en: "Open", hi: "खोलें", hg: "Kholo" },
   "sale.search": { en: "Search invoice number, customer or mobile...", hi: "बिल नंबर, ग्राहक या मोबाइल खोजें...", hg: "Invoice number, customer ya mobile dhundo..." },

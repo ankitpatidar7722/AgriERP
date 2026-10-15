@@ -1,10 +1,11 @@
 "use client";
 
-import { Store, Warehouse } from "lucide-react";
+import { ReceiptText, Store, Warehouse } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/common/page-header";
 import { ShopMasterTab } from "./ShopMasterTab";
 import { WarehouseMasterTab } from "./WarehouseMasterTab";
+import { InvoiceSettingsTab } from "./InvoiceSettingsTab";
 import { useT } from "@/features/i18n/provider";
 
 export default function ShopWarehousePage() {
@@ -26,6 +27,10 @@ export default function ShopWarehousePage() {
             <Warehouse className="mr-1.5 size-4" />
             {t("wh.tabLabel")}
           </TabsTrigger>
+          <TabsTrigger value="invoice">
+            <ReceiptText className="mr-1.5 size-4" />
+            {t("inv.tabLabel")}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="shop" className="space-y-4">
@@ -33,6 +38,9 @@ export default function ShopWarehousePage() {
         </TabsContent>
         <TabsContent value="warehouse" className="space-y-4">
           <WarehouseMasterTab />
+        </TabsContent>
+        <TabsContent value="invoice" className="space-y-4">
+          <InvoiceSettingsTab />
         </TabsContent>
       </Tabs>
     </>

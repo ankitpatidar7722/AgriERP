@@ -19,6 +19,7 @@ import {
   PrintFooter,
   type PrintMetaRow,
 } from "@/features/transactions/print-parts";
+import { UpiQr } from "@/components/common/upi-qr";
 import { formatCurrency, formatDate, formatQuantity } from "@/lib/format";
 import { useT } from "@/features/i18n/provider";
 
@@ -180,9 +181,19 @@ export default function InvoicePrintPage() {
                   </div>
                 )}
                 {shop.upiId && (
-                  <div>
-                    <span className="font-semibold text-black">{t("prn.payViaUpi")} </span>
-                    {shop.upiId}
+                  <div className="flex items-start gap-2 pt-0.5">
+                    <UpiQr
+                      payeeVpa={shop.upiId}
+                      payeeName={shop.shopName}
+                      amount={invoice.balanceAmount > 0 ? invoice.balanceAmount : invoice.grandTotal}
+                      note={invoice.invoiceNumber}
+                      size={92}
+                      caption={t("prn.scanToPay")}
+                    />
+                    <div className="pt-1">
+                      <span className="font-semibold text-black">{t("prn.payViaUpi")} </span>
+                      {shop.upiId}
+                    </div>
                   </div>
                 )}
               </div>

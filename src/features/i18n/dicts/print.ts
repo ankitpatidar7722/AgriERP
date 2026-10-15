@@ -29,6 +29,7 @@ export const print: Record<string, Record<Lang, string>> = {
   "prn.inWords": { en: "In words", hi: "शब्दों में", hg: "Shabdon me" },
   "prn.terms": { en: "Terms:", hi: "शर्तें:", hg: "Shartein:" },
   "prn.payViaUpi": { en: "Pay via UPI:", hi: "UPI से भुगतान करें:", hg: "UPI se pay karein:" },
+  "prn.scanToPay": { en: "Scan to pay", hi: "स्कैन कर भुगतान करें", hg: "Scan karke pay karein" },
   "prn.taxable": { en: "Taxable", hi: "कर योग्य", hg: "Taxable" },
   "prn.igst": { en: "IGST", hi: "IGST", hg: "IGST" },
   "prn.cgst": { en: "CGST", hi: "CGST", hg: "CGST" },

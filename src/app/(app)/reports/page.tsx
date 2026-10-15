@@ -43,7 +43,9 @@ import type {
 } from "@/features/transactions/types";
 import { formatCurrency, formatDate, formatPercent, formatQuantity, toIsoDate } from "@/lib/format";
 import { Permissions } from "@/lib/permissions";
-import { AlertTriangle, IndianRupee, Package, TrendingUp } from "lucide-react";
+import { AlertTriangle, ClipboardList, IndianRupee, Package, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { useT } from "@/features/i18n/provider";
 
 /** Client-side pager over an array the API returns whole. */
@@ -64,6 +66,7 @@ function usePagedArray<T>(rows: T[]) {
 export default function ReportsPage() {
   const { can } = useAuth();
   const t = useT();
+  const router = useRouter();
   const [tab, setTab] = useState("stock");
 
   // Deep-link: /reports?tab=expiry lands on that tab (dashboard expiry alert
@@ -75,7 +78,18 @@ export default function ReportsPage() {
 
   return (
     <>
-      <PageHeader title={t("rep.title")} description={t("rep.desc")} />
+      <PageHeader
+        title={t("rep.title")}
+        description={t("rep.desc")}
+        actions={
+          can(Permissions.Report.Stock) ? (
+            <Button variant="outline" onClick={() => router.push("/reports/compliance-register")}>
+              <ClipboardList className="mr-1.5 size-4" />
+              {t("repidx.cregCard")}
+            </Button>
+          ) : null
+        }
+      />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="h-auto flex-wrap">

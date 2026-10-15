@@ -5,6 +5,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSalesOrderPrint } from "@/features/transactions/hooks";
+import { UpiQr } from "@/components/common/upi-qr";
 import { formatDate } from "@/lib/format";
 import { useT } from "@/features/i18n/provider";
 
@@ -300,6 +301,32 @@ export default function SalesOrderPrintPage() {
             </p>
           </div>
         </div>
+
+        {/* PAY VIA UPI */}
+        {shop.upiId && (
+          <div className="mb-4 flex items-center gap-3 border border-slate-300 p-2">
+            <UpiQr
+              payeeVpa={shop.upiId}
+              payeeName={shop.shopName}
+              amount={sale.balanceAmount > 0 ? sale.balanceAmount : sale.grandTotal}
+              note={sale.invoiceNumber}
+              size={104}
+            />
+            <div className="text-[10px] text-slate-600">
+              <div className="font-bold" style={{ color: NAVY }}>
+                Pay via UPI
+              </div>
+              <div>Scan the QR with any UPI app (PhonePe / GPay / Paytm) to pay instantly.</div>
+              <div className="mt-0.5">
+                <strong>UPI ID:</strong> {shop.upiId}
+              </div>
+              <div>
+                <strong>Amount:</strong> ₹{" "}
+                {num2(sale.balanceAmount > 0 ? sale.balanceAmount : sale.grandTotal)}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TERMS */}
         <div className="mb-8 border border-slate-300 p-2 text-[10px] text-slate-600">

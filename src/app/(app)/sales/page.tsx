@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Edit, Plus, Printer, Trash2 } from "lucide-react";
+import { CloudOff, Edit, Plus, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -167,10 +167,16 @@ export default function SalesPage() {
         description={t("sale.desc")}
         actions={
           can(Permissions.Sales.Create) ? (
-            <Button variant="neutral" onClick={() => router.push("/sales/new")}>
-              <Plus className="mr-1.5 size-4" />
-              {t("sale.newInvoice")}
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => router.push("/sales/offline")}>
+                <CloudOff className="mr-1.5 size-4" />
+                {t("off.title")}
+              </Button>
+              <Button variant="neutral" onClick={() => router.push("/sales/new")}>
+                <Plus className="mr-1.5 size-4" />
+                {t("sale.newInvoice")}
+              </Button>
+            </>
           ) : null
         }
       />

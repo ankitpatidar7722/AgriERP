@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Printer } from "lucide-react";
+import { ExternalLink, NotebookText, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,14 +10,22 @@ import { PageHeader } from "@/components/common/page-header";
 import { Field } from "@/components/common/form-dialog";
 import { SearchPicker, type SearchPickerOption } from "@/components/common/search-picker";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useCustomerLedger, useCustomerLookup } from "@/features/masters/hooks";
+import {
+  useCurrentShop,
+  useCustomerLedger,
+  useCustomerLookup,
+  useCustomerProfile,
+} from "@/features/masters/hooks";
 import { LedgerTable } from "@/features/accounts/ledger-table";
-import { useT } from "@/features/i18n/provider";
+import { useLang, useT } from "@/features/i18n/provider";
 import { formatCurrency } from "@/lib/format";
+import { WhatsAppButton } from "@/components/common/whatsapp-button";
+import { buildUdhaarMessage } from "@/lib/whatsapp";
 
 export default function CustomerLedgerPage() {
   const router = useRouter();
   const t = useT();
+  const { lang } = useLang();
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerLabel, setCustomerLabel] = useState("");
   const [search, setSearch] = useState("");
@@ -27,6 +35,8 @@ export default function CustomerLedgerPage() {
   const debounced = useDebouncedValue(search);
   const customers = useCustomerLookup(debounced);
   const ledger = useCustomerLedger(customerId, from || null, to || null);
+  const profile = useCustomerProfile(customerId);
+  const shop = useCurrentShop();
 
   // Deep-link from a customer profile: ?customerId=
   useEffect(() => {
@@ -49,9 +59,26 @@ export default function CustomerLedgerPage() {
         actions={
           customerId ? (
             <>
+              {profile.data?.mobile && profile.data.outstanding > 0 && (
+                <WhatsAppButton
+                  size="default"
+                  phone={profile.data.mobile}
+                  label={t("wa.reminder")}
+                  message={buildUdhaarMessage({
+                    name: profile.data.customerName,
+                    amount: profile.data.outstanding,
+                    shopName: shop.data?.shopName,
+                    lang,
+                  })}
+                />
+              )}
               <Button variant="outline" onClick={() => router.push(`/customers/${customerId}`)}>
                 <ExternalLink className="mr-1.5 size-4" />
                 {t("custLedger.fullProfile")}
+              </Button>
+              <Button variant="outline" onClick={() => router.push(`/customers/${customerId}/passbook`)}>
+                <NotebookText className="mr-1.5 size-4" />
+                {t("pb.passbookBtn")}
               </Button>
               <Button variant="outline" onClick={() => window.print()}>
                 <Printer className="mr-1.5 size-4" />
