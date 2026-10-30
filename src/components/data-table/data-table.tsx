@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { exportToCSV, exportToExcel, exportToPDF } from "indas-ui";
 import { DataGrid } from "@/components/datagrid";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -76,6 +78,16 @@ interface DataTableProps<T> {
   exportFileName?: string;
   exportTitle?: string;
   onRowClick?: (row: T) => void;
+  /** Phone: the "+" button floating over the card list (the screen's own Create action). */
+  onCreate?: () => void;
+  createLabel?: string;
+  /** Phone list header Refresh. Default: re-fetch this screen's active queries. */
+  onRefresh?: () => void | Promise<unknown>;
+  /** Phone cards: which columns (by key), in order — first = title, second = reference. */
+  cardColumns?: string[];
+  /** Phone: tapping a card opens the record with this (e.g. the edit form). Phone cards only — the
+   *  desktop grid keeps its own click behaviour. Falls back to onRowClick. */
+  onCardTap?: (row: T) => void;
 }
 
 /** The whole set fits in one fetch, so the grid can page it client-side. */
@@ -105,7 +117,19 @@ export function DataTable<T>({
   filters,
   onRowClick,
   exportFileName,
+  exportTitle,
+  onCreate,
+  createLabel,
+  onRefresh,
+  cardColumns,
+  onCardTap,
 }: DataTableProps<T>) {
+  const queryClient = useQueryClient();
+  const isPhone = useIsPhone();
+  const refresh = useCallback(
+    () => onRefresh?.() ?? queryClient.refetchQueries({ type: "active" }),
+    [onRefresh, queryClient],
+  );
   // Pull the whole set once. The grid pages it in the browser, so a 25-row
   // server page would leave its pager stuck at "1-25 of 25".
   useEffect(() => {
@@ -147,10 +171,14 @@ export function DataTable<T>({
           ),
           enableSorting: canSort,
           enableColumnFilter: false,
-          meta: { align: column.align },
+          // The card reads its tap handler off the actions column (CardView: meta.onView).
+          // `title` = the label a phone card prints before each value (the header itself is a render function).
+          meta: column.key === "actions" && onCardTap
+            ? { align: column.align, title: column.header, onView: onCardTap }
+            : { align: column.align, title: column.header },
         } satisfies ColumnDef<T>;
       }),
-    [columns],
+    [columns, onCardTap],
   );
 
   // The grid opens a record on double-click; this keeps the app's single-click-to
@@ -225,6 +253,12 @@ export function DataTable<T>({
         // view; the wrapper above adds desktop single-click-to-open.
         onRowClick={onRowClick}
         loading={isLoading}
+        // Phone card view: list header (Sort / Search / Refresh) + the "+" Create button.
+        onCreate={onCreate}
+        createLabel={createLabel}
+        onRefresh={refresh}
+        cardColumns={cardColumns}
+        phoneTitle={exportTitle}
         enableSearch
         enableSorting
         enableFiltering
@@ -247,7 +281,7 @@ export function DataTable<T>({
         // stack across rows on a phone instead of overflowing the header.
         headerActions={filters ? <div className="flex flex-wrap items-center gap-2">{filters}</div> : undefined}
         // Export is hidden on phones (bulk export isn't practical there) — shows from md up.
-        headerActionsRight={exportMenu ? <div className="hidden md:block">{exportMenu}</div> : undefined}
+        headerActionsRight={exportMenu && !isPhone ? <div className="hidden md:block">{exportMenu}</div> : undefined}
       />
     </div>
   );

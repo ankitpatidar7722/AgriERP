@@ -32,8 +32,9 @@ export function PageHeader({ title, actions }: PageHeaderProps) {
   }, [groups, pathname]);
 
   return (
-    <div className="mb-6 flex flex-col items-center gap-3 text-center">
-      <div className="flex min-w-0 items-center justify-center gap-2">
+    <div className="mb-6 flex flex-col items-center gap-3 text-center max-md:mb-3">
+      {/* Phones: the app bar on top already names the screen (PhoneTopBar). */}
+      <div className="hide-on-phone flex min-w-0 items-center justify-center gap-2">
         <ModuleIcon name={iconName} className="size-6 shrink-0 text-primary" />
         <h1 className="text-2xl font-bold tracking-tight lg:text-[28px] lg:leading-tight">
           {title}

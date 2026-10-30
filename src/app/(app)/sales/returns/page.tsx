@@ -84,7 +84,7 @@ export default function SalesReturnsPage() {
         )}
         actions={
           canReturn ? (
-            <Button variant="neutral" onClick={() => router.push("/sales/returns/new")}>
+            <Button variant="neutral" className="hide-on-phone" onClick={() => router.push("/sales/returns/new")}>
               <Plus className="mr-1.5 size-4" />
               {t("sret.newReturn", "New Return")}
             </Button>
@@ -93,6 +93,8 @@ export default function SalesReturnsPage() {
       />
 
       <DataTable
+
+        onCreate={canReturn ? () => router.push("/sales/returns/new") : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

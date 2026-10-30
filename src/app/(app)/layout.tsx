@@ -9,6 +9,11 @@ import { Navbar } from "@/components/layout/navbar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AlertBridge } from "@/components/common/alert-bridge";
 import { IndasProvider } from "@/components/indas/indas-provider";
+import { BackStackProvider } from "@/lib/back-stack";
+import DialogBackGuard from "@/components/phone/DialogBackGuard";
+import OfflineBanner from "@/components/phone/OfflineBanner";
+import PhoneTopBar from "@/components/phone/PhoneTopBar";
+import PullToRefresh from "@/components/phone/PullToRefresh";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated, user } = useAuth();
@@ -49,22 +54,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // than per-table, so every list screen's grid has them without each screen
     // wrapping its own.
     <IndasProvider>
-      <div className="flex min-h-screen bg-background">
+      <BackStackProvider>
+      {/* Android / browser Back closes an open dialog instead of leaving the page. */}
+      <DialogBackGuard />
+      <div className="app-frame flex min-h-screen bg-background">
         {/* Collapsible sidebar from lg up; the drawer in Navbar covers smaller screens. */}
         <DesktopSidebar />
 
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Navy desktop header from lg up; the light phone app bar below lg (globals.css). */}
           <Navbar />
+          <PhoneTopBar />
           {/* Extra bottom padding on phones so the fixed BottomNav never hides content. */}
           <main className="flex-1 p-4 pb-24 sm:p-5 sm:pb-24 lg:p-7 lg:pb-7">{children}</main>
         </div>
       </div>
 
-      {/* Phone-only bottom navigation (hidden from lg up). */}
+      {/* Phone / tablet glass bottom bar + Modules sheet (hidden from lg up). */}
       <BottomNav />
 
       {/* Routes app toasts through indas-ui's alert (same success/error popup as Indus 360). */}
       <AlertBridge />
+      <OfflineBanner />
+      {/* Touch phones: pull the page down from the top to re-fetch its data (Settings → Gestures). */}
+      <PullToRefresh />
+      </BackStackProvider>
     </IndasProvider>
   );
 }

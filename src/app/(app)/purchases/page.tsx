@@ -330,7 +330,7 @@ export default function PurchasesPage() {
         description={t("grn.desc")}
         actions={
           canReceive ? (
-            <Button variant="neutral" onClick={goToNewGrn}>
+            <Button variant="neutral" className="hide-on-phone" onClick={goToNewGrn}>
               <Plus className="mr-1.5 size-4" />
               {selectedPoIds.size > 0 ? `${t("grn.newGrn")} (${selectedPoIds.size})` : t("grn.newGrn")}
             </Button>
@@ -386,6 +386,7 @@ export default function PurchasesPage() {
 
       {tab === "pending" ? (
         <DataTable
+          onCreate={canReceive ? goToNewGrn : undefined}
           columns={poColumns}
           result={pendingOrders.data}
           isLoading={pendingOrders.isLoading}
@@ -403,6 +404,7 @@ export default function PurchasesPage() {
         />
       ) : (
         <DataTable
+          onCreate={canReceive ? goToNewGrn : undefined}
           columns={columns}
           result={list.data}
           isLoading={list.isLoading}

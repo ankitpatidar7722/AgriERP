@@ -674,7 +674,7 @@ export default function ItemsPage() {
             </Select>
 
             {can(Permissions.Item.Create) && (
-              <Button variant="neutral" onClick={openCreate}>
+              <Button variant="neutral" className="hide-on-phone" onClick={openCreate}>
                 <Plus className="mr-1.5 size-4" />
                 {t("item.newItem")}
               </Button>
@@ -684,6 +684,12 @@ export default function ItemsPage() {
       />
 
       <DataTable
+
+
+        onCardTap={can(Permissions.Item.Edit) ? openEdit : undefined}
+
+
+        onCreate={can(Permissions.Item.Create) ? openCreate : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

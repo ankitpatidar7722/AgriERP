@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, ChevronRight, KeyRound, Languages, LogOut, Menu, UserRound } from "lucide-react";
+import { Check, ChevronRight, KeyRound, Languages, LogOut, Menu, Settings, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -67,7 +67,7 @@ export function Navbar() {
     .sort((a, b) => b.moduleName.length - a.moduleName.length)[0]?.moduleDisplayName;
 
   return (
-    <header className="no-print sticky top-0 z-30 flex h-16 items-center gap-2 bg-sidebar px-3 text-sidebar-foreground lg:px-6">
+    <header className="app-topbar no-print sticky top-0 z-30 flex h-16 items-center gap-2 bg-sidebar px-3 text-sidebar-foreground lg:px-6">
       {/* Drawer replaces the fixed rail below lg. */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetTrigger asChild>
@@ -146,6 +146,13 @@ export function Navbar() {
               <Link href="/change-password">
                 <KeyRound className="mr-2 size-4" />
                 {t("shell.changePassword")}
+              </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 size-4" />
+                Settings
               </Link>
             </DropdownMenuItem>
 

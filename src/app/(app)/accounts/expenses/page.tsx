@@ -205,7 +205,7 @@ export default function ExpensesPage() {
         description={t("exp.desc", "Shop running costs - rent, electricity, wages and other charges. Deducted from gross profit for the year.")}
         actions={
           canWrite ? (
-            <Button variant="neutral" onClick={openCreate}>
+            <Button variant="neutral" className="hide-on-phone" onClick={openCreate}>
               <Plus className="mr-1.5 size-4" />
               {t("exp.newExpense", "New Expense")}
             </Button>
@@ -214,6 +214,10 @@ export default function ExpensesPage() {
       />
 
       <DataTable
+
+        onCardTap={canWrite ? openEdit : undefined}
+
+        onCreate={canWrite ? openCreate : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

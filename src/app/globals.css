@@ -14,6 +14,9 @@
 */
 @import "indas-ui/tokens.css";
 @import "./indas-theme.css";
+/* Phone app kit (glass bottom bar, Modules sheet, phone Home, record cards, profile card, settings) -
+   ported from Indus 360 / IndusFlexoERP. Self-named classes + phone-only media blocks: desktop untouched. */
+@import "./phone-kit.css";
 
 @tailwind base;
 @tailwind components;
@@ -328,3 +331,123 @@ input[type="number"] {
     animation: none;
   }
 }
+
+/* ===================== Phone app shell (Indus 360 / IndusFlexoERP style) =====================
+   Below lg (1024px): no navy header and no sidebar - a light phone app bar on top (PhoneTopBar),
+   a floating glass capsule at the bottom (BottomNav) and the Modules sheet. lg and up: unchanged. */
+
+/* The phone kit's brand colour = AgriERP's green primary (HSL triplet). indas-ui's --color-primary is
+   kept slate for the grid header (indas-theme.css), so the kit reads its own variable instead. */
+:root { --m-brand: var(--primary); --m-brand-rgb: 21 128 61; }
+.dark { --m-brand: var(--primary); --m-brand-rgb: 74 222 128; }
+
+.bottom-nav { display: none; }
+@media (max-width: 1023px) {
+  .app-topbar { display: none !important; }
+  .phone-topbar { position: sticky; top: 0; background: hsl(var(--background)); }
+
+  .bottom-nav {
+    display: block;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    z-index: 62;                 /* above the Modules sheet (61) so the bar stays tappable while it is open */
+    padding: 6px 12px calc(env(safe-area-inset-bottom, 0px) + 8px);
+    background: transparent;
+    pointer-events: none;        /* only the capsule takes taps; the page shows through around it */
+  }
+  .bottom-nav[data-keyboard] { display: none; }   /* keyboard up -> no tab bar (useKeyboardOpen) */
+  .bottom-nav-capsule {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 64px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 6px;
+    border-radius: 32px;
+    --nav-icon-cut: #fff;
+  }
+  .dark .bottom-nav-capsule { --nav-icon-cut: rgb(46 48 54); }
+  .bottom-nav-item {
+    position: relative; z-index: 1; flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    border: none; background: transparent; cursor: pointer;
+    font-size: 11px; line-height: 1; font-weight: 500;
+    color: rgb(var(--fg-default) / 0.85);
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .bottom-nav-item[data-active="true"] { color: hsl(var(--m-brand)); font-weight: 700; }
+  .dark .bottom-nav-item[data-active="true"] { color: rgb(var(--fg-default)); }
+  .bottom-nav-label { max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bottom-nav-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 56px; height: 30px; }
+  .bottom-nav-glyph { position: relative; display: flex; align-items: center; justify-content: center; }
+  .bottom-nav-glyph[data-active="true"] { color: #fff; --nav-icon-cut: hsl(var(--m-brand)); }
+  .dark .bottom-nav-glyph[data-active="true"] { --nav-icon-cut: var(--m-nav-pill-dark); }
+  .m-nav-pill { position: absolute; inset: 0; border-radius: 999px; pointer-events: none; }
+
+  /* Room for the floating capsule under the last row of every screen. */
+  .app-frame main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (max-width: 768px) {
+  .app-frame main { overflow-x: hidden; }
+  /* The phone Home brings its own spacing + backdrop. */
+  .app-frame main:has(> .phone-home) { padding-left: 0 !important; padding-right: 0 !important; padding-top: 0 !important; }
+}
+
+/* ---- Phone master-form page (FormDialog on a phone, IndusFlexoERP look) ---- */
+.phone-form { background: hsl(var(--background)); }
+.phone-form .pf-titlebar {
+  display: flex; flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 12px 6px 4px; min-height: 56px;
+  background: hsl(var(--muted)); border-bottom: 1px solid hsl(var(--border));
+}
+.phone-form .pf-back {
+  display: grid; place-content: center; width: 44px; height: 44px; flex-shrink: 0;
+  border: none; border-radius: 999px; background: transparent; color: hsl(var(--foreground));
+  -webkit-tap-highlight-color: transparent;
+}
+.phone-form .pf-back:active { background: hsl(var(--foreground) / 0.08); }
+.phone-form .pf-title { flex: 1; min-width: 0; font-size: 18px; font-weight: 700; line-height: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Big, thumb-friendly fields; 16px text so iOS never zooms into a field. */
+.phone-form label { font-size: 15px; }
+.phone-form input:not([type="checkbox"]):not([type="radio"]),
+.phone-form textarea,
+.phone-form button[role="combobox"],
+.phone-form select { min-height: 52px; font-size: 16px; border-radius: 12px; }
+.phone-form textarea { min-height: 96px; }
+.phone-form .pf-savebar {
+  flex-shrink: 0; padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  background: hsl(var(--card)); border-top: 1px solid hsl(var(--border));
+  box-shadow: 0 -6px 18px -12px rgb(16 24 40 / 0.25);
+}
+.phone-form .pf-save { width: 100%; height: 52px; font-size: 16px; font-weight: 700; border-radius: 14px; gap: 8px; }
+
+/* ---- Phone tabs = ChipTabs (IndusFlexoERP): every Radix tab bar becomes one sideways-scrolling row of
+   full-label pill chips, the active one filled with the brand colour. No per-screen change needed. ---- */
+@media (max-width: 768px) {
+  [role="tablist"][aria-orientation="horizontal"] {
+    display: flex !important; flex-wrap: nowrap !important; justify-content: flex-start !important; gap: 8px;
+    width: auto !important; height: auto !important; max-width: none;
+    overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
+    margin: 0 -16px 4px; padding: 2px 16px 6px !important;
+    background: transparent !important; border: 0 !important; border-radius: 0 !important;
+  }
+  [role="tablist"][aria-orientation="horizontal"]::-webkit-scrollbar { display: none; }
+  [role="tablist"][aria-orientation="horizontal"] > [role="tab"] {
+    flex: 0 0 auto !important; height: 40px; padding: 0 14px !important; gap: 7px;
+    border-radius: 999px !important; border: 1px solid rgb(var(--fg-default) / 0.16) !important;
+    background: rgb(var(--bg-surface)) !important; box-shadow: none !important;
+    font-size: 14px; font-weight: 600; white-space: nowrap; color: rgb(var(--fg-default) / 0.8) !important;
+    scroll-snap-align: center; -webkit-tap-highlight-color: transparent;
+  }
+  [role="tablist"][aria-orientation="horizontal"] > [role="tab"][data-state="active"] {
+    border-color: transparent !important; color: #fff !important;
+    background: linear-gradient(150deg, hsl(var(--m-brand) / 0.82), hsl(var(--m-brand))) !important;
+    box-shadow: 0 4px 12px -5px hsl(var(--m-brand) / 0.55) !important;
+  }
+}
+
+/* Dark mode: tell the browser the scheme so native date pickers, selects and scrollbars go dark too.
+   (Body text/background already come from the theme tokens; print pages keep their white paper.) */
+.dark { color-scheme: dark; }
+.dark input::placeholder, .dark textarea::placeholder { color: hsl(var(--muted-foreground)); }

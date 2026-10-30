@@ -10,8 +10,9 @@ import type { Dashboard } from "./types";
  * are scoped to it; snapshot figures (stock value, dues, alerts) stay as-of-now.
  * Omitting the window makes the API fall back to the current calendar month.
  */
-export function useDashboard(fromDate?: string, toDate?: string) {
+export function useDashboard(fromDate?: string, toDate?: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["dashboard", fromDate ?? "", toDate ?? ""],
     queryFn: () =>
       apiGet<Dashboard>(

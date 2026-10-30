@@ -38,9 +38,12 @@ interface ModuleIconProps {
   /** IconName from app.ModuleMaster. Null, blank or unrecognised falls back. */
   name?: string | null;
   className?: string;
+  /** Inline size (the phone app tiles size their glyph relative to the tile). */
+  style?: React.CSSProperties;
+  strokeWidth?: number;
 }
 
-export function ModuleIcon({ name, className }: ModuleIconProps) {
+export function ModuleIcon({ name, className, style, strokeWidth }: ModuleIconProps) {
   const resolved = name ? toKebabCase(name) : null;
 
   /*
@@ -49,8 +52,8 @@ export function ModuleIcon({ name, className }: ModuleIconProps) {
    * jump from a 24px default to an 18px icon as each chunk lands.
    */
   const Fallback = useCallback(
-    () => <Circle className={cn("opacity-40", className)} aria-hidden />,
-    [className],
+    () => <Circle className={cn("opacity-40", className)} style={style} aria-hidden />,
+    [className, style],
   );
 
   // An unknown name would make DynamicIcon throw inside its effect and log to
@@ -64,6 +67,8 @@ export function ModuleIcon({ name, className }: ModuleIconProps) {
     <DynamicIcon
       name={resolved as IconName}
       className={className}
+      style={style}
+      strokeWidth={strokeWidth}
       fallback={Fallback}
       aria-hidden
     />

@@ -190,7 +190,7 @@ export default function ItemSubGroupsPage() {
         description={t("sub.desc")}
         actions={
           can(Permissions.ItemSubGroup.Create) ? (
-            <Button variant="neutral" onClick={openCreate}>
+            <Button variant="neutral" className="hide-on-phone" onClick={openCreate}>
               <Plus className="mr-1.5 size-4" />
               {t("sub.newSubGroup")}
             </Button>
@@ -199,6 +199,10 @@ export default function ItemSubGroupsPage() {
       />
 
       <DataTable
+
+        onCardTap={can(Permissions.ItemSubGroup.Edit) ? openEdit : undefined}
+
+        onCreate={can(Permissions.ItemSubGroup.Create) ? openCreate : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

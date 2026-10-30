@@ -172,7 +172,7 @@ export default function SalesPage() {
                 <CloudOff className="mr-1.5 size-4" />
                 {t("off.title")}
               </Button>
-              <Button variant="neutral" onClick={() => router.push("/sales/new")}>
+              <Button variant="neutral" className="hide-on-phone" onClick={() => router.push("/sales/new")}>
                 <Plus className="mr-1.5 size-4" />
                 {t("sale.newInvoice")}
               </Button>
@@ -182,6 +182,8 @@ export default function SalesPage() {
       />
 
       <DataTable
+
+        onCreate={can(Permissions.Sales.Create) ? () => router.push("/sales/new") : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

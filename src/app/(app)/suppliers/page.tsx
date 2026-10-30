@@ -288,7 +288,7 @@ export default function SuppliersPage() {
         description={t("sup.desc")}
         actions={
           can(Permissions.Supplier.Create) ? (
-            <Button variant="neutral" onClick={openCreate}>
+            <Button variant="neutral" className="hide-on-phone" onClick={openCreate}>
               <Plus className="mr-1.5 size-4" />
               {t("sup.newSupplier")}
             </Button>
@@ -297,6 +297,10 @@ export default function SuppliersPage() {
       />
 
       <DataTable
+
+        onCardTap={can(Permissions.Supplier.Edit) ? openEdit : undefined}
+
+        onCreate={can(Permissions.Supplier.Create) ? openCreate : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

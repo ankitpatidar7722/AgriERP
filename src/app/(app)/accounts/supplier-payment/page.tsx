@@ -297,7 +297,7 @@ export default function SupplierPaymentPage() {
         description={t("supPay.desc")}
         actions={
           can(Permissions.Payment.Create) ? (
-            <Button variant="neutral" onClick={openForm}>
+            <Button variant="neutral" className="hide-on-phone" onClick={openForm}>
               <Plus className="mr-1.5 size-4" />
               {t("supPay.newPayment")}
             </Button>
@@ -306,6 +306,8 @@ export default function SupplierPaymentPage() {
       />
 
       <DataTable
+
+        onCreate={can(Permissions.Payment.Create) ? openForm : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

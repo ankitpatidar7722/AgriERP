@@ -235,7 +235,7 @@ export default function PurchaseOrdersPage() {
         description={t("po.desc")}
         actions={
           canCreate ? (
-            <Button variant="neutral" onClick={() => router.push("/purchases/orders/new")}>
+            <Button variant="neutral" className="hide-on-phone" onClick={() => router.push("/purchases/orders/new")}>
               <Plus className="mr-1.5 size-4" />
               {t("po.newOrder")}
             </Button>
@@ -270,6 +270,7 @@ export default function PurchaseOrdersPage() {
 
       {tab === "pending" ? (
         <DataTable
+          onCreate={canCreate ? () => router.push("/purchases/orders/new") : undefined}
           columns={reqColumns}
           result={pendingReqs.data}
           isLoading={pendingReqs.isLoading}
@@ -287,6 +288,7 @@ export default function PurchaseOrdersPage() {
         />
       ) : (
         <DataTable
+          onCreate={canCreate ? () => router.push("/purchases/orders/new") : undefined}
           columns={orderColumns}
           result={list.data}
           isLoading={list.isLoading}

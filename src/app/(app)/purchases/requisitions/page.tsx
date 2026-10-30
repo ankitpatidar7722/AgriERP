@@ -220,7 +220,7 @@ export default function PurchaseRequisitionsPage() {
         description={t("req.desc")}
         actions={
           canCreate ? (
-            <Button variant="neutral" onClick={createBlank}>
+            <Button variant="neutral" className="hide-on-phone" onClick={createBlank}>
               <Plus className="mr-1.5 size-4" />
               {t("req.newRequisition")}
             </Button>
@@ -325,6 +325,7 @@ export default function PurchaseRequisitionsPage() {
         </div>
       ) : (
         <DataTable
+          onCreate={canCreate ? createBlank : undefined}
           columns={reqColumns}
           result={list.data}
           isLoading={list.isLoading}

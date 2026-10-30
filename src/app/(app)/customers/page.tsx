@@ -255,7 +255,7 @@ export default function CustomersPage() {
         description={t("cust.desc")}
         actions={
           can(Permissions.Customer.Create) ? (
-            <Button variant="neutral" onClick={openCreate}>
+            <Button variant="neutral" className="hide-on-phone" onClick={openCreate}>
               <Plus className="mr-1.5 size-4" />
               {t("cust.newCustomer")}
             </Button>
@@ -264,6 +264,8 @@ export default function CustomersPage() {
       />
 
       <DataTable
+
+        onCreate={can(Permissions.Customer.Create) ? openCreate : undefined}
         columns={columns}
         result={list.data}
         isLoading={list.isLoading}

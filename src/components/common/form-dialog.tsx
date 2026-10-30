@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2, Save, X } from "lucide-react";
+import { ChevronLeft, Loader2, Save, X } from "lucide-react";
+import { useIsPhone } from "@/hooks/use-is-phone";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,6 +54,40 @@ export function FormDialog({
   children,
 }: FormDialogProps) {
   const t = useT();
+  const isPhone = useIsPhone();
+
+  // PHONE: the IndusFlexoERP master-form page — full screen over the app bars, a grey title bar with ‹
+  // (back = cancel, Android Back too via DialogBackGuard), one column of big fields (.phone-form CSS) and
+  // ONE full-width Save bar pinned to the bottom. Same form, same fields, same submit.
+  if (isPhone) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="phone-form left-0 top-0 flex h-[100dvh] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 data-[state=closed]:slide-out-to-left-0 data-[state=closed]:slide-out-to-top-0 data-[state=open]:slide-in-from-left-0 data-[state=open]:slide-in-from-top-0 [&>button.absolute]:hidden"
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader className="pf-titlebar space-y-0 text-left">
+            <button type="button" className="pf-back" onClick={() => onOpenChange(false)} disabled={isPending} aria-label={t("common.cancel")}>
+              <ChevronLeft className="size-6" />
+            </button>
+            <DialogTitle className="pf-title">{title}</DialogTitle>
+            {description && <DialogDescription className="sr-only">{description}</DialogDescription>}
+          </DialogHeader>
+
+          <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col" noValidate>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">{children}</div>
+            <div className="pf-savebar">
+              <Button type="submit" variant="success" disabled={isPending} className="pf-save">
+                {isPending ? <Loader2 className="size-5 animate-spin" /> : <Save className="size-5" />}
+                {submitLabel ?? t("common.save")}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
