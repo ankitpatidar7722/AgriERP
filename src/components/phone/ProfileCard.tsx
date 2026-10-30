@@ -5,7 +5,7 @@ import { ChevronRight, KeyRound, Languages, LogOut, Moon, Settings as SettingsIc
 import { useAuth } from "@/features/auth/auth-context";
 import { useLang } from "@/features/i18n/provider";
 import { LANGUAGES } from "@/features/i18n/config";
-import { useBackGuard } from "@/lib/back-stack";
+import { useBackGuard, useLeaveForNavigation } from "@/lib/back-stack";
 
 /**
  * Phone profile card (IndusFlexoERP style), opened from the top bar's avatar over a dimmed screen:
@@ -23,9 +23,11 @@ export default function ProfileCard({ open, onClose }: { open: boolean; onClose:
   const { lang, setLang } = useLang();
   const isDark = resolvedTheme === "dark";
   useBackGuard(open, onClose);   // Android / browser Back closes the card
+  const leave = useLeaveForNavigation();
 
   if (!open) return null;
-  const go = (href: string) => { onClose(); router.push(href); };
+  // Close for a NAVIGATION: without leave() the close steps history back and cancels the push (tap did nothing).
+  const go = (href: string) => { leave(); onClose(); router.push(href); };
   const initials = (user?.fullName || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
   const current = LANGUAGES.find((l) => l.code === lang) ?? LANGUAGES[0];
   const nextLang = () => {

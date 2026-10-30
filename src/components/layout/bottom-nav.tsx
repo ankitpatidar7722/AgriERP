@@ -9,6 +9,7 @@ import { NavIcon } from "@/components/phone/NavIcons";
 import ModulesSheet from "@/components/phone/ModulesSheet";
 import { useKeyboardOpen } from "@/components/phone/useKeyboardOpen";
 import { OPEN_MODULE_SEARCH_EVENT } from "@/components/phone/PhoneTopBar";
+import { useLeaveForNavigation } from "@/lib/back-stack";
 import { useT } from "@/features/i18n/provider";
 
 /**
@@ -22,6 +23,7 @@ type Tab = { href: string; label: string; icon?: LucideIcon; home?: boolean };
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const leave = useLeaveForNavigation();
   const t = useT();
   const reduceMotion = !!useReducedMotion();
   const [modulesOpen, setModulesOpen] = useState(false);
@@ -54,7 +56,7 @@ export function BottomNav() {
             return (
               <motion.button key={tab.href} type="button" className="bottom-nav-item" data-active={on}
                 aria-current={on ? "page" : undefined} whileTap={{ scale: 0.92 }}
-                onClick={() => { setModulesOpen(false); router.push(tab.href); }}>
+                onClick={() => { if (modulesOpen) leave(); setModulesOpen(false); router.push(tab.href); }}>
                 <span className="bottom-nav-icon">
                   {on && <ActivePill reduceMotion={reduceMotion} />}
                   <TabGlyph active={on} reduceMotion={reduceMotion}>
