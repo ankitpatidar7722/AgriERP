@@ -14,6 +14,7 @@ import DialogBackGuard from "@/components/phone/DialogBackGuard";
 import OfflineBanner from "@/components/phone/OfflineBanner";
 import PhoneTopBar from "@/components/phone/PhoneTopBar";
 import PullToRefresh from "@/components/phone/PullToRefresh";
+import RouteWarmup from "@/components/phone/RouteWarmup";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated, user } = useAuth();
@@ -78,6 +79,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       {/* Touch phones: pull the page down from the top to re-fetch its data (Settings → Gestures). */}
       <PullToRefresh />
+      {/* Pre-loads every menu screen in the background so a module tap opens at once. */}
+      <RouteWarmup userId={user?.userId ?? null} />
       </BackStackProvider>
     </IndasProvider>
   );
