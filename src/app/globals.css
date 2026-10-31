@@ -389,7 +389,7 @@ input[type="number"] {
   .app-frame main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 @media (max-width: 768px) {
-  .app-frame main { overflow-x: hidden; }
+  .app-frame main { overflow-x: clip; }   /* clip, not hidden: hidden makes main a scroll box and breaks position:sticky Save bars */
   /* The phone Home brings its own spacing + backdrop. */
   .app-frame main:has(> .phone-home) { padding-left: 0 !important; padding-right: 0 !important; padding-top: 0 !important; }
 }
@@ -451,3 +451,19 @@ input[type="number"] {
    (Body text/background already come from the theme tokens; print pages keep their white paper.) */
 .dark { color-scheme: dark; }
 .dark input::placeholder, .dark textarea::placeholder { color: hsl(var(--muted-foreground)); }
+
+/* A dialog / full-page phone form is open: its own Save bar sits at the bottom of the screen, so the floating
+   bottom bar (z 62, above the dialog layer) must step aside or it covers Save. The Modules sheet and the
+   profile card carry no data-state, so the bar stays with them. */
+@media (max-width: 1023px) {
+  body:has([role="dialog"][data-state="open"]) .bottom-nav,
+  body:has([role="alertdialog"][data-state="open"]) .bottom-nav { display: none !important; }
+}
+
+/* Page forms (New Sale / Purchase GRN / Sales Return) pin their totals + Save bar with `sticky bottom-0`.
+   Below lg the floating bottom bar owns the last ~86px of the screen, so the pinned bar stops above it
+   instead of sliding underneath (where its Save button could not be tapped). */
+@media (max-width: 1023px) {
+  .app-frame main .sticky.bottom-0 { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+  body:has(.bottom-nav[data-keyboard]) .app-frame main .sticky.bottom-0 { bottom: 0; }
+}
